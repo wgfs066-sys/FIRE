@@ -189,7 +189,7 @@
       <div style="margin-top:16px;">
         <button class="btn-success" onclick="openConfirmPressureModal()">確認 (檢查壓力錶)</button>
         <button class="btn-outline" onclick="openModifyModal()">修改</button>
-        <button class="btn-secondary" onclick="closeModal('modal-ext-info')">離開</button>
+        <button class="btn-secondary" onclick="closeModal('modal-ext-info')">關閉</button>
       </div>
     </div>
   </div>
@@ -201,7 +201,8 @@
       <p style="margin:18px 0; font-size:16px; font-weight:bold;">請確認該滅火器壓力錶狀態是否正常？</p>
       <button class="btn-success" onclick="submitCheck(true)">是，正常</button>
       <button class="btn-danger" onclick="submitCheck(false)">否，異常</button>
-      <button class="btn-secondary" onclick="closeModal('modal-pressure-confirm')">取消</button>
+      <!-- 修改點：取消返回詳情彈窗 -->
+      <button class="btn-secondary" onclick="cancelToExtInfo('modal-pressure-confirm')">取消</button>
     </div>
   </div>
 
@@ -214,7 +215,8 @@
       <label>到期日</label><input type="date" id="mod-expiry">
       <label>壓力錶狀態</label><input type="text" id="mod-pressure">
       <button onclick="submitModify()">確認修改</button>
-      <button class="btn-secondary" onclick="closeModal('modal-modify-ext')">取消</button>
+      <!-- 修改點：取消根據來源返回 -->
+      <button class="btn-secondary" onclick="handleCancelModify()">取消</button>
     </div>
   </div>
 
@@ -237,7 +239,8 @@
       <label>位置</label><input type="text" id="add-location" placeholder="例如: 大門左側">
       <label>到期日</label><input type="date" id="add-expiry">
       <button onclick="submitAdd()">確認新增</button>
-      <button class="btn-secondary" onclick="closeModal('modal-add-form')">取消</button>
+      <!-- 修改點：取消返回詢問彈窗 -->
+      <button class="btn-secondary" onclick="cancelToAddAsk()">取消</button>
     </div>
   </div>
 
@@ -249,6 +252,7 @@
     let selectedExt = null;
     let scannedBarcode = "";
     let allData = []; 
+    let modifySource = "info"; // 紀錄修改資料的進入來源 ('info' 或 'list')
 
     const currentMonthStr = new Date().toISOString().slice(0, 7); 
 
@@ -294,7 +298,7 @@
       });
     }
 
-    // --- UI 切換 ---
+    // --- UI 切換與彈窗層級控制 ---
     function switchView(viewId, tabId) {
       ['v-scan', 'v-list', 'v-user'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
@@ -307,6 +311,24 @@
       document.getElementById("alert-title").innerText = title;
       document.getElementById("alert-message").innerText = msg;
       showModal("modal-alert");
+    }
+
+    // --- 🚀 返回上一個彈窗的邏輯 ---
+    function cancelToExtInfo(currentModalId) {
+      closeModal(currentModalId);
+      showModal("modal-ext-info");
+    }
+
+    function handleCancelModify() {
+      closeModal("modal-modify-ext");
+      if (modifySource === "info") {
+        showModal("modal-ext-info");
+      }
+    }
+
+    function cancelToAddAsk() {
+      closeModal("modal-add-form");
+      showModal("modal-add-ask");
     }
 
     // --- 登入與登出流程 ---
@@ -361,7 +383,7 @@
       }, null, isBackground);
     }
 
-    // 🚀 渲染「本月未檢查」清單（加入手動檢查按鈕）
+    // 渲染「本月未檢查」清單
     function renderUninspectedList() {
       const uninspected = allData.filter(d => !d.lastCheckDate || !d.lastCheckDate.startsWith(currentMonthStr));
       const container = document.getElementById("uninspected-list");
@@ -383,7 +405,7 @@
       `).join('');
     }
 
-    // 🚀 渲染「全部資料」清單（每筆新增修改按鈕）
+    // 渲染「全部資料」清單
     function renderList() {
       const sortVal = document.getElementById("filter-sort").value;
       const statusVal = document.getElementById("filter-status").value;
@@ -440,6 +462,7 @@
       const foundExt = allData.find(d => Number(d.rowIndex) === Number(rowIndex));
       if (foundExt) {
         selectedExt = { rowIndex: foundExt.rowIndex, data: foundExt };
+        modifySource = "list";
         openModifyModal();
       }
     }
@@ -517,22 +540,45 @@
       showModal("modal-pressure-confirm");
     }
 
+    // 🚀 核心優化：點擊後即刻完成提示，並非同步背景處理 GAS 寫入
     function submitCheck(isNormal) {
       closeModal("modal-pressure-confirm");
+      
       const todayStr = new Date().toISOString().slice(0, 10);
+      const pressureStr = isNormal ? "正常" : "異常";
+
+      // 1. 本地資料先行即時更新（UI零延遲）
+      const itemIndex = allData.findIndex(d => Number(d.rowIndex) === Number(selectedExt.rowIndex));
+      if (itemIndex !== -1) {
+        allData[itemIndex].pressure = pressureStr;
+        allData[itemIndex].lastCheckDate = todayStr;
+        allData[itemIndex].lastChecker = currentUser.name;
+        localStorage.setItem('fireExt_allData', JSON.stringify(allData));
+      }
+
+      // 2. 立即更新 UI 列表
+      renderUninspectedList();
+      renderList();
+
+      // 3. 立即跳出成功提示彈窗
+      showAlert("檢查成功", `已紀錄狀態：${pressureStr}`);
+
+      // 4. 背景非同步發送 API 寫入 Google Sheet (使用者無需等待)
       callGAS({
-        action: "updateFireExtinguisher", mode: "check", rowIndex: selectedExt.rowIndex,
-        pressure: isNormal ? "正常" : "異常", lastCheckDate: todayStr, lastChecker: currentUser.name
-      }, res => {
-        if (res && res.ok) {
-          showAlert("檢查成功", `已紀錄狀態：${isNormal ? "正常" : "異常"}`);
-          fetchAllData(false);
-        } else showAlert("錯誤", res.msg);
-      });
+        action: "updateFireExtinguisher", 
+        mode: "check", 
+        rowIndex: selectedExt.rowIndex,
+        pressure: pressureStr, 
+        lastCheckDate: todayStr, 
+        lastChecker: currentUser.name
+      }, null, null, true); // 第4個參數傳入 true 代表背景非同步執行
     }
 
     // --- 修改資料功能 ---
     function openModifyModal() {
+      if (document.getElementById("modal-ext-info").style.display === "flex") {
+        modifySource = "info";
+      }
       closeModal("modal-ext-info");
       const d = selectedExt.data;
       document.getElementById("mod-floor").value = d.floor || "";
