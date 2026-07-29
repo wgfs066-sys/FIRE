@@ -30,7 +30,6 @@
     .hidden {
       display: none !important;
     }
-    /* 管理頁面頂部導航欄 */
     #top-global-clock {
       background-color: var(--primary-dark);
       color: #ffffff;
@@ -42,7 +41,6 @@
       letter-spacing: 1px;
       margin-bottom: 0px;
     }
-    /* Tabs 切換條 */
     .tabs {
       display: flex;
       background: #fff;
@@ -65,7 +63,6 @@
       border-bottom: 3px solid var(--primary-dark);
       font-weight: bold;
     }
-    /* 按鈕與表單元素 */
     button {
       background: var(--primary);
       color: white;
@@ -79,13 +76,8 @@
       margin-top: 8px;
       transition: opacity 0.2s, transform 0.1s;
     }
-    button:active {
-      transform: scale(0.98);
-    }
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
     button.btn-secondary { background: #888888; }
     button.btn-danger { background: #d9534f; }
     button.btn-success { background: #5cb85c; }
@@ -100,7 +92,6 @@
       font-size: 16px;
       background: #fff;
     }
-    /* 表格設計 */
     .roster-wrapper {
       overflow-x: auto;
       border-radius: 8px;
@@ -124,7 +115,6 @@
       color: #555;
       font-weight: bold;
     }
-    /* 彈窗遮罩與卡片 */
     .modal-overlay {
       position: fixed !important;
       top: 0; left: 0; width: 100vw; height: 100vh;
@@ -145,7 +135,6 @@
       max-height: 85vh;
       overflow-y: auto;
     }
-    /* 掃描對焦區塊與中央紅線 */
     #reader-container {
       position: relative;
       width: 100%;
@@ -186,15 +175,14 @@
   <!-- 登入卡片 -->
   <div id="v-login" class="card">
     <h3 style="text-align:center; color:var(--primary-dark); margin-top:5px;">人員登入</h3>
-    <input type="text" id="loginId" placeholder="請輸入編號或密碼" onkeypress="if(event.key==='Enter') handleLogin()">
+    <input type="text" id="loginId" placeholder="請輸入登入編號" onkeypress="if(event.key==='Enter') handleLogin()">
     <button id="loginBtn" onclick="handleLogin()">確認登入</button>
   </div>
 
   <!-- Tabs 導覽列 -->
   <div id="tabs-bar" class="tabs hidden">
     <div id="t-scan" class="tab-item active" onclick="switchView('v-scan', 't-scan')">掃描與檢查</div>
-    <div id="t-list" class="tab-item" onclick="switchView('v-list', 't-list')">館內滅火器</div>
-    <div id="t-user" class="tab-item" onclick="switchView('v-user', 't-user')">系統設定</div>
+    <div id="t-user" class="tab-item" onclick="switchView('v-user', 't-user')">個人設定</div>
   </div>
 
   <!-- 視圖 1: 掃描與檢查 -->
@@ -208,72 +196,15 @@
         <div class="scan-line"></div>
       </div>
     </div>
-
-    <h4 style="margin-top:20px; margin-bottom:5px; color:var(--primary-dark); border-bottom:1px solid #eee; padding-bottom:6px;">本月尚未檢查的滅火器</h4>
-    <div class="roster-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th class="header-bg">樓層</th>
-            <th class="header-bg">位置</th>
-          </tr>
-        </thead>
-        <tbody id="uninspected-tbody">
-          <tr><td colspan="2">載入中...</td></tr>
-        </tbody>
-      </table>
-    </div>
   </div>
 
-  <!-- 視圖 2: 館內滅火器列表 -->
-  <div id="v-list" class="card hidden">
-    <div style="display:flex; gap:8px; margin-bottom:6px;">
-      <select id="filter-sort" onchange="renderExtinguisherList()">
-        <option value="ALL">全樓層 / 預設排序</option>
-        <option value="NEW_OLD">到期日：新 → 舊</option>
-        <option value="OLD_NEW">到期日：舊 → 新</option>
-      </select>
-      <select id="filter-status" onchange="renderExtinguisherList()">
-        <option value="ALL">全部檢查狀態</option>
-        <option value="CHECKED">本月已檢查</option>
-        <option value="UNCHECKED">本月未檢查</option>
-      </select>
-    </div>
-
-    <div class="roster-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th class="header-bg">編號</th>
-            <th class="header-bg">樓層</th>
-            <th class="header-bg">位置</th>
-            <th class="header-bg">到期日</th>
-            <th class="header-bg">壓力錶</th>
-            <th class="header-bg">最後檢查日</th>
-            <th class="header-bg">最後檢查人</th>
-          </tr>
-        </thead>
-        <tbody id="all-extinguishers-tbody">
-          <tr><td colspan="7">載入中...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- 視圖 3: 系統設定與個人資料 -->
+  <!-- 視圖 2: 個人設定 -->
   <div id="v-user" class="card hidden">
-    <div style="border-bottom:1px solid #eee; padding-bottom:12px; margin-bottom:12px;">
+    <div style="padding-bottom:12px; margin-bottom:12px;">
       <h4 style="margin-top:0; color:var(--primary-dark);">當前使用者資料</h4>
       <p style="margin:8px 0;"><strong>姓名：</strong><span id="user-name-display">-</span></p>
       <p style="margin:8px 0;"><strong>編號：</strong><span id="user-id-display">-</span></p>
       <button class="btn-secondary" onclick="handleLogout()">登出系統</button>
-    </div>
-
-    <div>
-      <h4 style="margin-top:0; color:var(--primary-dark);">更改密碼或編號</h4>
-      <input type="text" id="old-id-input" placeholder="請輸入目前密碼/編號">
-      <input type="text" id="new-id-input" placeholder="請輸入欲變更之新密碼/編號">
-      <button onclick="handleChangeId()">儲存變更</button>
     </div>
   </div>
 
@@ -292,8 +223,8 @@
       <h4 style="text-align:center; color:var(--primary-dark); margin-top:0;">滅火器詳細資訊</h4>
       <div id="ext-info-content" style="font-size:14px; line-height:1.8;"></div>
       <div style="margin-top:16px;">
-        <button onclick="openModifyModal()">修改資料</button>
-        <button class="btn-success" onclick="openConfirmPressureModal()">執行檢查</button>
+        <button onclick="openModifyModal()">修改完整資料</button>
+        <button class="btn-success" onclick="openConfirmPressureModal()">執行定期檢查</button>
         <button class="btn-secondary" onclick="closeModal('modal-ext-info')">離開</button>
       </div>
     </div>
@@ -324,10 +255,6 @@
       <input type="date" id="mod-expiry">
       <label style="font-size:12px; color:#666;">壓力錶</label>
       <input type="text" id="mod-pressure">
-      <label style="font-size:12px; color:#666;">最後檢查日</label>
-      <input type="date" id="mod-lastDate">
-      <label style="font-size:12px; color:#666;">最後檢查人</label>
-      <input type="text" id="mod-lastUser">
       
       <button onclick="submitModifyExt()">確認修改</button>
       <button class="btn-secondary" onclick="closeModal('modal-modify-ext')">取消</button>
@@ -366,39 +293,29 @@
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOwzB-gusEWV0ZTRyGvQUGbU7sP3_pD_clyZl3Tp-W6a-5EuT4e_MS_BKGvf0oDgtD/exec";
 
     let currentUser = null;
-    let extList = [];
     let html5QrcodeScanner = null;
     let selectedExt = null;
     let scannedBarcode = "";
 
-    // ---------------- 統一 API 呼叫函式 (取代 google.script.run) ----------------
-    function callGAS(action, args, onSuccess, onFailure) {
+    // ---------------- API 發送函式 (與後端 doPost 解析結構對齊) ----------------
+    function callGAS(payloadObj, onSuccess, onFailure) {
       fetch(GAS_WEB_APP_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "text/plain;charset=utf-8",
-        },
-        body: JSON.stringify({ action: action, args: args })
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payloadObj)
       })
       .then(res => res.json())
-      .then(data => {
-        if (onSuccess) onSuccess(data);
-      })
+      .then(data => { if (onSuccess) onSuccess(data); })
       .catch(err => {
         if (onFailure) onFailure(err);
-        else console.error("GAS 呼叫錯誤:", err);
+        else console.error("API 呼叫錯誤:", err);
       });
     }
 
-    // ---------------- UI 與視圖控制 ----------------
+    // ---------------- UI 顯示控制 ----------------
     function switchView(viewId, tabId) {
-      ['v-scan', 'v-list', 'v-user'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
-      });
-      document.querySelectorAll('.tab-item').forEach(t => {
-        t.classList.remove('active');
-      });
-      
+      ['v-scan', 'v-user'].forEach(id => document.getElementById(id).classList.add('hidden'));
+      document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
       document.getElementById(viewId).classList.remove('hidden');
       if (tabId) document.getElementById(tabId).classList.add('active');
     }
@@ -411,16 +328,17 @@
       showModal("modal-alert");
     }
 
-    // ---------------- 登入與權限管理 ----------------
+    // ---------------- 登入與權限 ----------------
     function handleLogin() {
       const idInput = document.getElementById("loginId").value.trim();
-      if (!idInput) return showAlert("提示", "請輸入編號或密碼");
+      if (!idInput) return showAlert("提示", "請輸入登入編號");
       
       const btn = document.getElementById("loginBtn");
       btn.disabled = true;
       btn.innerText = "驗證中...";
 
-      callGAS("checkLoginById", [idInput],
+      callGAS(
+        { action: "login", userId: idInput },
         res => {
           btn.disabled = false;
           btn.innerText = "確認登入";
@@ -430,9 +348,7 @@
             document.getElementById("tabs-bar").classList.remove("hidden");
             document.getElementById("user-name-display").innerText = res.name;
             document.getElementById("user-id-display").innerText = res.id;
-            
             switchView('v-scan', 't-scan');
-            loadAllExtinguishers();
           } else {
             showAlert("登入失敗", res ? res.msg : "系統無回應，請稍後再試");
           }
@@ -449,106 +365,12 @@
       stopScanner();
       currentUser = null;
       document.getElementById("tabs-bar").classList.add("hidden");
-      ['v-scan', 'v-list', 'v-user'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
-      });
+      ['v-scan', 'v-user'].forEach(id => document.getElementById(id).classList.add('hidden'));
       document.getElementById("v-login").classList.remove("hidden");
       document.getElementById("loginId").value = "";
     }
 
-    function handleChangeId() {
-      const oldId = document.getElementById("old-id-input").value.trim();
-      const newId = document.getElementById("new-id-input").value.trim();
-      if (!oldId || !newId) return showAlert("提示", "請填寫完整舊編號與新編號");
-      
-      callGAS("changeUserId", [oldId, newId], 
-        res => {
-          if (res && res.ok) {
-            showAlert("成功", "密碼編號已更新，請使用新編號重新登入！");
-            document.getElementById("old-id-input").value = "";
-            document.getElementById("new-id-input").value = "";
-            handleLogout();
-          } else {
-            showAlert("變更失敗", res ? res.msg : "變更失敗");
-          }
-        }
-      );
-    }
-
-    // ---------------- 滅火器資料處理與渲染 ----------------
-    function loadAllExtinguishers() {
-      callGAS("getExtinguishers", [], 
-        res => {
-          if (res && res.ok) {
-            extList = res.data || [];
-            renderUninspectedTable();
-            renderExtinguisherList();
-          } else {
-            showAlert("載入錯誤", res ? res.msg : "讀取資料失敗");
-          }
-        }
-      );
-    }
-
-    function isCheckedThisMonth(dateStr) {
-      if (!dateStr) return false;
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      return String(dateStr).startsWith(currentMonth);
-    }
-
-    function renderUninspectedTable() {
-      const tbody = document.getElementById("uninspected-tbody");
-      const uninspected = extList.filter(item => !isCheckedThisMonth(item.lastDate));
-      
-      if (uninspected.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="2" style="color:green; font-weight:bold;">恭喜，本月全館滅火器皆已檢查完成！</td></tr>';
-        return;
-      }
-      tbody.innerHTML = uninspected.map(item => `
-        <tr>
-          <td>${item.floor || ''}</td>
-          <td>${item.location || ''}</td>
-        </tr>
-      `).join('');
-    }
-
-    function renderExtinguisherList() {
-      const sortVal = document.getElementById("filter-sort").value;
-      const statusVal = document.getElementById("filter-status").value;
-      
-      let list = [...extList];
-      
-      if (statusVal === "CHECKED") {
-        list = list.filter(item => isCheckedThisMonth(item.lastDate));
-      } else if (statusVal === "UNCHECKED") {
-        list = list.filter(item => !isCheckedThisMonth(item.lastDate));
-      }
-      
-      if (sortVal === "NEW_OLD") {
-        list.sort((a, b) => (b.expiry || "").localeCompare(a.expiry || ""));
-      } else if (sortVal === "OLD_NEW") {
-        list.sort((a, b) => (a.expiry || "").localeCompare(b.expiry || ""));
-      }
-      
-      const tbody = document.getElementById("all-extinguishers-tbody");
-      if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7">無對應條件的滅火器</td></tr>';
-        return;
-      }
-      tbody.innerHTML = list.map(item => `
-        <tr>
-          <td><strong>${item.id}</strong></td>
-          <td>${item.floor || ''}</td>
-          <td>${item.location || ''}</td>
-          <td>${item.expiry || ''}</td>
-          <td style="color:${item.pressure === '正常' ? 'green' : 'red'}; font-weight:bold;">${item.pressure || '-'}</td>
-          <td>${item.lastDate || ''}</td>
-          <td>${item.lastUser || ''}</td>
-        </tr>
-      `).join('');
-    }
-
-    // ---------------- 相機條碼掃描模組 ----------------
+    // ---------------- 相機條碼掃描 ----------------
     function startScanner() {
       document.getElementById("btn-start-scan").classList.add("hidden");
       document.getElementById("btn-stop-scan").classList.remove("hidden");
@@ -566,10 +388,10 @@
           stopScanner();
           handleBarcodeScanned(decodedText.trim());
         },
-        (error) => { /* 忽略幀讀取錯誤 */ }
+        (error) => {}
       ).catch(err => {
         stopScanner();
-        showAlert("相機開啟失敗", "請確認是否已授權瀏覽器開啟手機相機。");
+        showAlert("相機開啟失敗", "請確認是否已授權瀏覽器存取相機。");
       });
     }
 
@@ -587,27 +409,32 @@
 
     function handleBarcodeScanned(code) {
       scannedBarcode = code;
-      const target = extList.find(item => String(item.id).trim() === code);
       
-      if (target) {
-        selectedExt = target;
-        document.getElementById("ext-info-content").innerHTML = `
-          <strong>編號：</strong> ${target.id}<br>
-          <strong>樓層：</strong> ${target.floor}<br>
-          <strong>位置：</strong> ${target.location}<br>
-          <strong>到期日：</strong> ${target.expiry}<br>
-          <strong>壓力錶：</strong> <span style="color:${target.pressure === '正常' ? 'green' : 'red'}; font-weight:bold;">${target.pressure || '未紀錄'}</span><br>
-          <strong>最後檢查日：</strong> ${target.lastDate || '無紀錄'}<br>
-          <strong>最後檢查人：</strong> ${target.lastUser || '無紀錄'}
-        `;
-        showModal("modal-ext-info");
-      } else {
-        document.getElementById("add-ask-text").innerText = `條碼 [ ${code} ] 不在館內滅火器名單中，是否要立即新增此滅火器？`;
-        showModal("modal-add-ask");
-      }
+      callGAS(
+        { action: "getFireExtinguisher", barcode: code },
+        res => {
+          if (res && res.found) {
+            selectedExt = res;
+            const data = res.data;
+            document.getElementById("ext-info-content").innerHTML = `
+              <strong>編號：</strong> ${data.code}<br>
+              <strong>樓層：</strong> ${data.floor}<br>
+              <strong>位置：</strong> ${data.location}<br>
+              <strong>到期日：</strong> ${data.expireDate}<br>
+              <strong>壓力錶：</strong> <span style="color:${data.pressure === '正常' ? 'green' : 'red'}; font-weight:bold;">${data.pressure || '未紀錄'}</span><br>
+              <strong>最後檢查日：</strong> ${data.lastCheckDate || '無紀錄'}<br>
+              <strong>最後檢查人：</strong> ${data.lastChecker || '無紀錄'}
+            `;
+            showModal("modal-ext-info");
+          } else {
+            document.getElementById("add-ask-text").innerText = `條碼 [ ${code} ] 未在資料庫中找到，是否要立即新增此滅火器？`;
+            showModal("modal-add-ask");
+          }
+        }
+      );
     }
 
-    // ---------------- 滅火器操作 (修改 / 檢查 / 新增) ----------------
+    // ---------------- 檢查與修改操作 ----------------
     function openConfirmPressureModal() {
       closeModal("modal-ext-info");
       showModal("modal-pressure-confirm");
@@ -616,65 +443,59 @@
     function submitPressure(isNormal) {
       closeModal("modal-pressure-confirm");
       
-      const pressureStatus = isNormal ? "正常" : "異常";
       const todayStr = new Date().toISOString().slice(0, 10);
+      const payload = {
+        action: "updateFireExtinguisher",
+        mode: "check",
+        rowIndex: selectedExt.rowIndex,
+        pressure: isNormal ? "正常" : "異常",
+        lastCheckDate: todayStr,
+        lastChecker: currentUser ? currentUser.name : ""
+      };
 
-      // 前端背景先行更新（無感同步提升體驗）
-      if (selectedExt) {
-        selectedExt.pressure = pressureStatus;
-        selectedExt.lastDate = todayStr;
-        selectedExt.lastUser = currentUser ? currentUser.name : "";
-        renderUninspectedTable();
-        renderExtinguisherList();
-      }
-
-      callGAS("inspectExtinguisher", [selectedExt.row, isNormal, currentUser ? currentUser.name : ""], 
-        res => {
-          if (res && res.ok) {
-            showAlert("檢查成功", `壓力錶已紀錄為：${pressureStatus}`);
-            loadAllExtinguishers();
-          } else {
-            showAlert("錯誤", res ? res.msg : "資料更新失敗");
-          }
+      callGAS(payload, res => {
+        if (res && res.ok) {
+          showAlert("檢查成功", `壓力錶已紀錄為：${payload.pressure}`);
+        } else {
+          showAlert("錯誤", res ? res.msg : "更新失敗");
         }
-      );
+      });
     }
 
     function openModifyModal() {
       closeModal("modal-ext-info");
-      document.getElementById("mod-id").value = selectedExt.id;
-      document.getElementById("mod-floor").value = selectedExt.floor || "";
-      document.getElementById("mod-location").value = selectedExt.location || "";
-      document.getElementById("mod-expiry").value = selectedExt.expiry || "";
-      document.getElementById("mod-pressure").value = selectedExt.pressure || "";
-      document.getElementById("mod-lastDate").value = selectedExt.lastDate || "";
-      document.getElementById("mod-lastUser").value = selectedExt.lastUser || "";
+      const d = selectedExt.data;
+      document.getElementById("mod-id").value = d.code;
+      document.getElementById("mod-floor").value = d.floor || "";
+      document.getElementById("mod-location").value = d.location || "";
+      document.getElementById("mod-expiry").value = d.expireDate || "";
+      document.getElementById("mod-pressure").value = d.pressure || "正常";
       showModal("modal-modify-ext");
     }
 
     function submitModifyExt() {
-      const data = {
-        id: document.getElementById("mod-id").value,
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const payload = {
+        action: "updateFireExtinguisher",
+        mode: "full",
+        rowIndex: selectedExt.rowIndex,
+        code: document.getElementById("mod-id").value,
         floor: document.getElementById("mod-floor").value.trim(),
         location: document.getElementById("mod-location").value.trim(),
-        expiry: document.getElementById("mod-expiry").value,
+        expireDate: document.getElementById("mod-expiry").value,
         pressure: document.getElementById("mod-pressure").value.trim(),
-        lastDate: document.getElementById("mod-lastDate").value,
-        lastUser: document.getElementById("mod-lastUser").value.trim()
+        lastCheckDate: todayStr,
+        lastChecker: currentUser ? currentUser.name : ""
       };
       
       closeModal("modal-modify-ext");
-      
-      callGAS("updateExtinguisher", [selectedExt.row, data], 
-        res => {
-          if (res && res.ok) {
-            showAlert("修改成功", "滅火器資料已成功同步！");
-            loadAllExtinguishers();
-          } else {
-            showAlert("錯誤", res ? res.msg : "修改失敗");
-          }
+      callGAS(payload, res => {
+        if (res && res.ok) {
+          showAlert("修改成功", "滅火器資料已更新！");
+        } else {
+          showAlert("錯誤", res ? res.msg : "修改失敗");
         }
-      );
+      });
     }
 
     function openAddFormModal() {
@@ -693,25 +514,26 @@
       
       if (!floor || !location) return showAlert("提示", "樓層與放置位置為必填欄位");
 
-      const info = {
-        id: scannedBarcode,
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const payload = {
+        action: "addFireExtinguisher",
+        code: scannedBarcode,
         floor: floor,
         location: location,
-        expiry: expiry
+        expireDate: expiry,
+        pressure: "正常",
+        lastCheckDate: todayStr,
+        lastChecker: currentUser ? currentUser.name : ""
       };
 
       closeModal("modal-add-form");
-      
-      callGAS("addExtinguisher", [info], 
-        res => {
-          if (res && res.ok) {
-            showAlert("新增成功", "已成功建立滅火器資料！");
-            loadAllExtinguishers();
-          } else {
-            showAlert("錯誤", res ? res.msg : "新增失敗");
-          }
+      callGAS(payload, res => {
+        if (res && res.ok) {
+          showAlert("新增成功", "已成功建立滅火器資料！");
+        } else {
+          showAlert("錯誤", res ? res.msg : "新增失敗");
         }
-      );
+      });
     }
   </script>
 </body>
