@@ -53,6 +53,12 @@
     button.btn-success { background: #5cb85c; }
     button.btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
     
+    /* 清單內小按鈕專用 */
+    .btn-sm {
+      width: auto !important; margin-top: 0 !important; padding: 6px 12px !important;
+      font-size: 13px !important; border-radius: 6px !important;
+    }
+
     input, select {
       width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd;
       border-radius: 8px; box-sizing: border-box; font-size: 16px;
@@ -88,11 +94,15 @@
       margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
     }
     .list-badge {
-      font-size: 12px; padding: 4px 8px; border-radius: 4px; color: white;
+      font-size: 12px; padding: 4px 8px; border-radius: 4px; color: white; display: inline-block;
     }
     .bg-red { background: #d9534f; }
     .bg-green { background: #5cb85c; }
-    .bg-gray { background: #888; }
+    
+    /* 背景更新提示 */
+    #sync-indicator {
+      font-size: 12px; color: #888; text-align: center; margin-top: 5px; height: 16px;
+    }
   </style>
 </head>
 <body>
@@ -125,6 +135,7 @@
 
     <div style="margin-top: 20px;">
       <h4 style="color: var(--primary-dark); border-bottom: 2px solid var(--primary); padding-bottom: 5px;">本月尚未檢查清單</h4>
+      <div id="sync-indicator"></div>
       <div id="uninspected-list">載入中...</div>
     </div>
   </div>
@@ -173,7 +184,7 @@
   <!-- 滅火器詳細資訊 -->
   <div id="modal-ext-info" class="modal-overlay">
     <div class="modal-card" style="text-align:left;">
-      <h4 style="text-align:center; color:var(--primary-dark); margin-top:0;">掃描結果</h4>
+      <h4 style="text-align:center; color:var(--primary-dark); margin-top:0;">滅火器詳情與檢查</h4>
       <div id="ext-info-content" style="font-size:14px; line-height:1.8;"></div>
       <div style="margin-top:16px;">
         <button class="btn-success" onclick="openConfirmPressureModal()">確認 (檢查壓力錶)</button>
@@ -231,30 +242,55 @@
   </div>
 
   <script>
-    // ⚠️ 務必確認這是你最新的 GAS 發布網址
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOwzB-gusEWV0ZTRyGvQUGbU7sP3_pD_clyZl3Tp-W6a-5EuT4e_MS_BKGvf0oDgtD/exec";
 
     let currentUser = null;
     let html5QrcodeScanner = null;
     let selectedExt = null;
     let scannedBarcode = "";
-    let allData = []; // 儲存所有滅火器資料
+    let allData = []; 
 
-    const currentMonthStr = new Date().toISOString().slice(0, 7); // 產生 "YYYY-MM"
+    const currentMonthStr = new Date().toISOString().slice(0, 7); 
+
+    // --- 頁面載入時檢查 localStorage ---
+    window.onload = function() {
+      const savedUser = localStorage.getItem('fireExt_currentUser');
+      if (savedUser) {
+        currentUser = JSON.parse(savedUser);
+        document.getElementById("v-login").classList.add("hidden");
+        document.getElementById("tabs-bar").classList.remove("hidden");
+        document.getElementById("user-name-display").innerText = currentUser.name;
+        document.getElementById("user-id-display").innerText = currentUser.id;
+        switchView('v-scan', 't-scan');
+
+        const cachedData = localStorage.getItem('fireExt_allData');
+        if (cachedData) {
+          allData = JSON.parse(cachedData);
+          renderUninspectedList();
+          renderList();
+        }
+        fetchAllData(true); 
+      }
+    };
 
     // --- API 呼叫共用函式 ---
-    function callGAS(payloadObj, onSuccess, onFailure) {
-      showModal("modal-loading");
+    function callGAS(payloadObj, onSuccess, onFailure, isBackground = false) {
+      if (!isBackground) showModal("modal-loading");
       fetch(GAS_WEB_APP_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(payloadObj)
       })
       .then(res => res.json())
-      .then(data => { closeModal("modal-loading"); if (onSuccess) onSuccess(data); })
+      .then(data => { 
+        if (!isBackground) closeModal("modal-loading"); 
+        if (onSuccess) onSuccess(data); 
+      })
       .catch(err => {
-        closeModal("modal-loading");
-        if (onFailure) onFailure(err); else showAlert("連線錯誤", "無法連線至伺服器");
+        if (!isBackground) {
+          closeModal("modal-loading");
+          if (onFailure) onFailure(err); else showAlert("連線錯誤", "無法連線至伺服器");
+        }
       });
     }
 
@@ -273,7 +309,7 @@
       showModal("modal-alert");
     }
 
-    // --- 登入流程 ---
+    // --- 登入與登出流程 ---
     function handleLogin() {
       const idInput = document.getElementById("loginId").value.trim();
       if (!idInput) return showAlert("提示", "請輸入登入編號");
@@ -281,12 +317,14 @@
       callGAS({ action: "login", userId: idInput }, res => {
         if (res && res.ok) {
           currentUser = res;
+          localStorage.setItem('fireExt_currentUser', JSON.stringify(res));
+
           document.getElementById("v-login").classList.add("hidden");
           document.getElementById("tabs-bar").classList.remove("hidden");
           document.getElementById("user-name-display").innerText = res.name;
           document.getElementById("user-id-display").innerText = res.id;
           switchView('v-scan', 't-scan');
-          fetchAllData(); // 登入後拉取所有資料
+          fetchAllData(false);
         } else {
           showAlert("登入失敗", res.msg);
         }
@@ -296,23 +334,34 @@
     function handleLogout() {
       stopScanner();
       currentUser = null; allData = [];
+      localStorage.removeItem('fireExt_currentUser');
+      localStorage.removeItem('fireExt_allData');
+
       document.getElementById("tabs-bar").classList.add("hidden");
       switchView('v-login', null);
       document.getElementById("loginId").value = "";
     }
 
-    // --- 取得所有資料與渲染清單 ---
-    function fetchAllData() {
+    // --- 取得所有資料與快取 ---
+    function fetchAllData(isBackground = false) {
+      if (isBackground) document.getElementById("sync-indicator").innerText = "資料同步中...";
+      
       callGAS({ action: "getAll" }, res => {
         if (res && res.ok) {
           allData = res.data;
+          localStorage.setItem('fireExt_allData', JSON.stringify(allData));
+          
           renderUninspectedList();
           renderList();
+          if (isBackground) {
+            document.getElementById("sync-indicator").innerText = "資料已更新至最新狀態";
+            setTimeout(() => document.getElementById("sync-indicator").innerText = "", 3000);
+          }
         }
-      });
+      }, null, isBackground);
     }
 
-    // 渲染「本月未檢查」清單 (Tab 1 底部)
+    // 🚀 渲染「本月未檢查」清單（加入手動檢查按鈕）
     function renderUninspectedList() {
       const uninspected = allData.filter(d => !d.lastCheckDate || !d.lastCheckDate.startsWith(currentMonthStr));
       const container = document.getElementById("uninspected-list");
@@ -322,27 +371,31 @@
       }
       container.innerHTML = uninspected.map(d => `
         <div class="list-item">
-          <div><strong>${d.floor}</strong> - ${d.location}</div>
-          <div class="list-badge bg-red">待檢查</div>
+          <div>
+            <strong>${d.floor}</strong> - ${d.location}
+            <div style="font-size:12px; color:#777;">編號: ${d.code}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="list-badge bg-red">待檢查</span>
+            <button class="btn-success btn-sm" onclick="handleManualCheckByRow(${d.rowIndex})">手動檢查</button>
+          </div>
         </div>
       `).join('');
     }
 
-    // 渲染「全部資料」清單 (Tab 2)
+    // 🚀 渲染「全部資料」清單（每筆新增修改按鈕）
     function renderList() {
       const sortVal = document.getElementById("filter-sort").value;
       const statusVal = document.getElementById("filter-status").value;
       
       let filtered = [...allData];
 
-      // 狀態篩選
       if (statusVal === "done") {
         filtered = filtered.filter(d => d.lastCheckDate && d.lastCheckDate.startsWith(currentMonthStr));
       } else if (statusVal === "undone") {
         filtered = filtered.filter(d => !d.lastCheckDate || !d.lastCheckDate.startsWith(currentMonthStr));
       }
 
-      // 排序
       if (sortVal === "new_old") {
         filtered.sort((a, b) => new Date(b.expireDate || '1970') - new Date(a.expireDate || '1970'));
       } else if (sortVal === "old_new") {
@@ -359,14 +412,49 @@
         const isDone = d.lastCheckDate && d.lastCheckDate.startsWith(currentMonthStr);
         return `
         <div class="list-item" style="flex-direction:column; align-items:flex-start;">
-          <div style="width:100%; display:flex; justify-content:space-between; margin-bottom:5px;">
+          <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
             <strong>${d.code} (${d.floor})</strong>
             <span class="list-badge ${isDone ? 'bg-green' : 'bg-red'}">${isDone ? '已檢查' : '未檢查'}</span>
           </div>
           <div style="font-size:14px; color:#555;">位置：${d.location}</div>
           <div style="font-size:14px; color:#555;">到期：${d.expireDate}</div>
+          <div style="width:100%; display:flex; justify-content:flex-end; margin-top:8px;">
+            <button class="btn-outline btn-sm" onclick="handleDirectModifyByRow(${d.rowIndex})">修改資料</button>
+          </div>
         </div>`;
       }).join('');
+    }
+
+    // --- 快捷觸發：手動檢查 ---
+    function handleManualCheckByRow(rowIndex) {
+      const foundExt = allData.find(d => Number(d.rowIndex) === Number(rowIndex));
+      if (foundExt) {
+        selectedExt = { rowIndex: foundExt.rowIndex, data: foundExt };
+        renderExtInfo(selectedExt.data);
+        showModal("modal-ext-info");
+      }
+    }
+
+    // --- 快捷觸發：直接修改資料 ---
+    function handleDirectModifyByRow(rowIndex) {
+      const foundExt = allData.find(d => Number(d.rowIndex) === Number(rowIndex));
+      if (foundExt) {
+        selectedExt = { rowIndex: foundExt.rowIndex, data: foundExt };
+        openModifyModal();
+      }
+    }
+
+    // --- 顯示滅火器資訊畫面 ---
+    function renderExtInfo(d) {
+      document.getElementById("ext-info-content").innerHTML = `
+        <strong>編號：</strong> ${d.code}<br>
+        <strong>樓層：</strong> ${d.floor}<br>
+        <strong>位置：</strong> ${d.location}<br>
+        <strong>到期日：</strong> ${d.expireDate}<br>
+        <strong>壓力錶：</strong> <span style="color:${d.pressure==='正常'?'green':'red'}; font-weight:bold;">${d.pressure||'無'}</span><br>
+        <strong>最後檢查日：</strong> ${d.lastCheckDate || '無紀錄'}<br>
+        <strong>檢查人：</strong> ${d.lastChecker || '無'}
+      `;
     }
 
     // --- 相機掃描功能 ---
@@ -403,25 +491,24 @@
 
     function handleBarcodeScanned(code) {
       scannedBarcode = code;
-      callGAS({ action: "getFireExtinguisher", barcode: code }, res => {
-        if (res && res.found) {
-          selectedExt = res;
-          const d = res.data;
-          document.getElementById("ext-info-content").innerHTML = `
-            <strong>編號：</strong> ${d.code}<br>
-            <strong>樓層：</strong> ${d.floor}<br>
-            <strong>位置：</strong> ${d.location}<br>
-            <strong>到期日：</strong> ${d.expireDate}<br>
-            <strong>壓力錶：</strong> <span style="color:${d.pressure==='正常'?'green':'red'}; font-weight:bold;">${d.pressure||'無'}</span><br>
-            <strong>最後檢查日：</strong> ${d.lastCheckDate || '無紀錄'}<br>
-            <strong>檢查人：</strong> ${d.lastChecker || '無'}
-          `;
-          showModal("modal-ext-info");
-        } else {
-          document.getElementById("add-ask-text").innerText = `條碼 [ ${code} ] 不在資料庫中，是否要新增？`;
-          showModal("modal-add-ask");
-        }
-      });
+      const foundExt = allData.find(d => String(d.code).trim() === String(code).trim());
+      
+      if (foundExt) {
+        selectedExt = { rowIndex: foundExt.rowIndex, data: foundExt };
+        renderExtInfo(selectedExt.data);
+        showModal("modal-ext-info");
+      } else {
+        callGAS({ action: "getFireExtinguisher", barcode: code }, res => {
+          if (res && res.found) {
+            selectedExt = res;
+            renderExtInfo(res.data);
+            showModal("modal-ext-info");
+          } else {
+            document.getElementById("add-ask-text").innerText = `條碼 [ ${code} ] 不在資料庫中，是否要新增？`;
+            showModal("modal-add-ask");
+          }
+        });
+      }
     }
 
     // --- 檢查更新功能 ---
@@ -439,7 +526,7 @@
       }, res => {
         if (res && res.ok) {
           showAlert("檢查成功", `已紀錄狀態：${isNormal ? "正常" : "異常"}`);
-          fetchAllData(); // 重新拉取以更新畫面
+          fetchAllData(false);
         } else showAlert("錯誤", res.msg);
       });
     }
@@ -466,7 +553,7 @@
       }, res => {
         if (res && res.ok) {
           showAlert("修改成功", "資料已更新！");
-          fetchAllData();
+          fetchAllData(false);
         } else showAlert("錯誤", res.msg);
       });
     }
@@ -494,7 +581,7 @@
       }, res => {
         if (res && res.ok) {
           showAlert("新增成功", "已加入設備清單！");
-          fetchAllData();
+          fetchAllData(false);
         } else showAlert("錯誤", res.msg);
       });
     }
