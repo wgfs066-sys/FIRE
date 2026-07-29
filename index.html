@@ -1,713 +1,343 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="zh-TW">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>滅火器檢查系統</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
-    :root {
-      --primary: #7e9e8d;      /* 莫蘭迪綠主色 */
-      --primary-dark: #5a7b66; /* 深灰綠底色 */
-      --bg: #f8faf9;           /* 灰綠調白背景 */
-      --card: #ffffff;         /* 白色卡片背景 */
-      --text: #333333;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      padding-bottom: 30px;
-    }
-    .card {
-      background: var(--card);
-      margin: 12px;
-      padding: 16px;
-      border-radius: 14px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
-    }
-    .hidden {
-      display: none !important;
-    }
-    /* 管理頁面頂部導航欄 */
-    #top-global-clock {
-      background-color: #5a7b66;
-      color: #ffffff;
-      padding: 14px;
-      text-align: center;
-      font-family: 'Courier New', Courier, monospace;
-      font-size: 1.1rem;
-      font-weight: bold;
-      letter-spacing: 1px;
-      margin-bottom: 0px;
-    }
-    /* Tabs 切換條 */
-    .tabs {
-      display: flex;
-      background: #fff;
-      border-bottom: 1px solid #ddd;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .tab-item {
-      flex: 1;
-      text-align: center;
-      padding: 14px 5px;
-      font-size: 15px;
-      cursor: pointer;
-      color: #777;
-    }
-    .tab-item.active {
-      color: var(--primary);
-      border-bottom: 3px solid var(--primary);
-      font-weight: bold;
-    }
-    /* 按鈕與表單元素 */
-    button {
-      background: var(--primary);
-      color: white;
-      border: none;
-      padding: 12px;
-      border-radius: 10px;
-      font-weight: bold;
-      width: 100%;
-      cursor: pointer;
-      font-size: 16px;
-      margin-top: 8px;
-    }
-    button.btn-secondary {
-      background: #888888;
-    }
-    button.btn-danger {
-      background: #d9534f;
-    }
-    button.btn-success {
-      background: #5cb85c;
-    }
-    input, select {
-      width: 100%;
-      padding: 12px;
-      margin: 8px 0;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      box-sizing: border-box;
-      font-size: 16px;
-      background: #fff;
-    }
-    /* 表格設計 */
-    .roster-wrapper {
-      overflow-x: auto;
-      border-radius: 8px;
-      border: 1px solid #eee;
-      background: white;
-      margin-top: 10px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-      background: #fff;
-    }
-    th, td {
-      border: 1px solid #eee;
-      padding: 10px 6px;
-      text-align: center;
-    }
-    th.header-bg {
-      background: var(--bg);
-      color: #555;
-      font-weight: bold;
-    }
-    /* 彈窗遮罩與卡片 */
-    .modal-overlay {
-      position: fixed !important;
-      top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(0, 0, 0, 0.6);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      z-index: 11000;
-    }
-    .modal-card {
-      background: white;
-      padding: 22px;
-      border-radius: 16px;
-      width: 88%;
-      max-width: 320px;
-      text-align: center;
-      box-shadow: 0 5px 25px rgba(0,0,0,0.3);
-      max-height: 85vh;
-      overflow-y: auto;
-    }
-    /* 掃描對焦區塊與中央紅線 */
-    #reader-container {
-      position: relative;
-      width: 100%;
-      border-radius: 12px;
-      overflow: hidden;
-      margin-top: 10px;
-      margin-bottom: 15px;
-      display: none;
-    }
-    .scan-viewfinder {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 78%;
-      height: 120px;
-      transform: translate(-50%, -50%);
-      border: 3px solid var(--primary);
-      border-radius: 8px;
-      box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.4);
-      pointer-events: none;
-      z-index: 10;
-    }
-    .scan-line {
-      position: absolute;
-      top: 50%;
-      left: 6%;
-      width: 88%;
-      height: 2px;
-      background: #ff4d4d;
-      box-shadow: 0 0 6px #ff4d4d;
-    }
+    :root { --primary: #2b5876; --secondary: #4e4376; --success: #28a745; --danger: #dc3545; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f7f6; margin: 0; padding: 0; color: #333; }
+    .container { max-width: 500px; margin: 0 auto; padding: 15px; box-sizing: border-box; }
+    .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); margin-bottom: 15px; }
+    h2, h3 { margin-top: 0; color: var(--primary); text-align: center; }
+    input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+    button { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; font-size: 16px; margin: 5px 0; }
+    button.btn-secondary { background: #6c757d; }
+    button.btn-success { background: var(--success); }
+    button.btn-danger { background: var(--danger); }
+    .hidden { display: none !important; }
+    
+    /* 導覽列分頁樣式 */
+    .tabs { display: flex; background: #fff; border-bottom: 1px solid #ddd; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .tab-item { flex: 1; text-align: center; padding: 15px 5px; font-size: 15px; cursor: pointer; color: #777; font-weight: bold; }
+    .tab-item.active { color: var(--primary); border-bottom: 3px solid var(--primary); }
+
+    /* 掃描對齊框 */
+    #reader-container { position: relative; width: 100%; max-width: 400px; margin: 10px auto; overflow: hidden; border-radius: 12px; background: #000; }
+    .scan-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; height: 120px; border: 2px solid #00ff00; box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.5); pointer-events: none; border-radius: 8px; }
+    .scan-laser { width: 100%; height: 2px; background-color: red; position: absolute; top: 50%; box-shadow: 0 0 4px red; }
+    
+    /* 資訊卡片樣式 */
+    .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+    .info-label { font-weight: bold; color: #555; }
+    
+    /* 全螢幕讀取遮罩 */
+    #loading-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 999; color: white; font-size: 1.2rem; font-weight: bold; }
   </style>
 </head>
 <body>
 
-  <div id="top-global-clock">滅火器檢查系統</div>
+  <div id="loading-mask">處理中，請稍候...</div>
 
-  <div id="v-login" class="card">
-    <h3 style="text-align:center; color:var(--primary-dark); margin-top:5px;">人員登入</h3>
-    <input type="text" id="loginId" placeholder="請輸入編號或密碼">
-    <button id="loginBtn" onclick="handleLogin()">確認登入</button>
-  </div>
-
-  <div id="tabs-bar" class="tabs hidden">
-    <div id="t-scan" class="tab-item active" onclick="switchView('v-scan', 't-scan')">掃描與檢查</div>
-    <div id="t-list" class="tab-item" onclick="switchView('v-list', 't-list')">館內滅火器</div>
-    <div id="t-user" class="tab-item" onclick="switchView('v-user', 't-user')">系統設定</div>
-  </div>
-
-<div class="card" id="v-scan">
-  <h3>🔍 滅火器條碼掃描</h3>
-  
-  <div id="reader-container" style="display:none; position:relative; width:100%; max-width:400px; margin:10px auto; overflow:hidden; border-radius:12px; background:#000;">
-    <div id="reader" style="width:100%;"></div>
-    <div class="scan-overlay">
-      <div class="scan-laser"></div>
+  <div id="login-view" class="container" style="margin-top: 50px;">
+    <div class="card">
+      <h2>🔥 滅火器檢查系統</h2>
+      <p style="text-align: center; color: #666;">請輸入您的登入編號以繼續</p>
+      <input type="text" id="login-id" placeholder="請輸入登入 ID 編號" autocomplete="off">
+      <button onclick="handleLogin()">登入系統</button>
     </div>
   </div>
 
-  <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
-    <button id="btn-start-scan" type="button" onclick="startScanner()" style="background-color: #2b5876; font-size:1.1rem; padding:15px;">
-      📷 開啟相機掃描條碼
-    </button>
-    <button id="btn-stop-scan" type="button" class="btn-secondary hidden" onclick="stopScanner()" style="background-color: #d9534f;">
-      ⏹️ 停止掃描
-    </button>
-    <button id="btn-manual-input" type="button" class="btn-secondary" onclick="openManualInput()" style="background-color: #6c757d;">
-      ⌨️ 手動輸入編號
-    </button>
-  </div>
-</div>
-    <h4 style="margin-top:20px; margin-bottom:5px; color:var(--primary-dark); border-bottom:1px solid #eee; padding-bottom:6px;">本月尚未檢查的滅火器</h4>
-    <div class="roster-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th class="header-bg">樓層</th>
-            <th class="header-bg">位置</th>
-          </tr>
-        </thead>
-        <tbody id="uninspected-tbody">
-          <tr><td colspan="2">載入中...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <div id="v-list" class="card hidden">
-    <div style="display:flex; gap:8px; margin-bottom:6px;">
-      <select id="filter-sort" onchange="renderExtinguisherList()">
-        <option value="ALL">全樓層 / 預設排序</option>
-        <option value="NEW_OLD">到期日：新 → 舊</option>
-        <option value="OLD_NEW">到期日：舊 → 新</option>
-      </select>
-      <select id="filter-status" onchange="renderExtinguisherList()">
-        <option value="ALL">全部檢查狀態</option>
-        <option value="CHECKED">本月已檢查</option>
-        <option value="UNCHECKED">本月未檢查</option>
-      </select>
+  <div id="main-view" class="hidden">
+    <div class="tabs">
+      <div class="tab-item active" onclick="switchTab(0)">📷 條碼掃描</div>
+      <div class="tab-item" onclick="switchTab(1)">⌨️ 手動查詢</div>
+      <div class="tab-item" onclick="switchTab(2) " id="tab-user-info" style="flex: 0.6; background: #eee; font-size: 13px;">👤 使用者</div>
     </div>
 
-    <div class="roster-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th class="header-bg">編號</th>
-            <th class="header-bg">樓層</th>
-            <th class="header-bg">位置</th>
-            <th class="header-bg">到期日</th>
-            <th class="header-bg">壓力錶</th>
-            <th class="header-bg">最後檢查日</th>
-            <th class="header-bg">最後檢查人</th>
-          </tr>
-        </thead>
-        <tbody id="all-extinguishers-tbody">
-          <tr><td colspan="7">載入中...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <div id="v-user" class="card hidden">
-    <div style="border-bottom:1px solid #eee; padding-bottom:12px; margin-bottom:12px;">
-      <h4 style="margin-top:0; color:var(--primary-dark);">當前使用者資料</h4>
-      <p style="margin:8px 0;"><strong>姓名：</strong><span id="user-name-display">-</span></p>
-      <p style="margin:8px 0;"><strong>編號：</strong><span id="user-id-display">-</span></p>
-      <button class="btn-secondary" onclick="handleLogout()">登出系統</button>
-    </div>
-
-    <div>
-      <h4 style="margin-top:0; color:var(--primary-dark);">更改密碼或編號</h4>
-      <input type="text" id="old-id-input" placeholder="請輸入目前密碼/編號">
-      <input type="text" id="new-id-input" placeholder="請輸入欲變更之新密碼/編號">
-      <button onclick="handleChangeId()">儲存變更</button>
-    </div>
-  </div>
-
-  <div id="modal-alert" class="modal-overlay">
-    <div class="modal-card">
-      <h4 id="alert-title" style="margin-top:0; color:var(--primary-dark);">提示</h4>
-      <p id="alert-message" style="margin:16px 0; line-height:1.6;"></p>
-      <button onclick="closeModal('modal-alert')">確定</button>
-    </div>
-  </div>
-
-  <div id="modal-ext-info" class="modal-overlay">
-    <div class="modal-card" style="text-align:left;">
-      <h4 style="text-align:center; color:var(--primary-dark); margin-top:0;">滅火器詳細資訊</h4>
-      <div id="ext-info-content" style="font-size:14px; line-height:1.8;"></div>
-      <div style="margin-top:16px;">
-        <button onclick="openModifyModal()">修改</button>
-        <button class="btn-success" onclick="openConfirmPressureModal()">確認</button>
-        <button class="btn-secondary" onclick="closeModal('modal-ext-info')">離開</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="modal-pressure-confirm" class="modal-overlay">
-    <div class="modal-card">
-      <h4 style="margin-top:0; color:var(--primary-dark);">壓力錶檢查</h4>
-      <p style="margin:18px 0; font-size:16px; font-weight:bold; color:#333;">是否確認壓力錶正常？</p>
-      <button class="btn-success" onclick="submitPressure(true)">是，正常</button>
-      <button class="btn-danger" onclick="submitPressure(false)">否，異常</button>
-      <button class="btn-secondary" onclick="closeModal('modal-pressure-confirm')">取消</button>
-    </div>
-  </div>
-
-  <div id="modal-modify-ext" class="modal-overlay">
-    <div class="modal-card" style="text-align:left;">
-      <h4 style="text-align:center; color:var(--primary-dark); margin-top:0;">修改滅火器資料</h4>
-      <label>編號 (唯讀)</label>
-      <input type="text" id="mod-id" disabled style="background:#eee;">
-      <label>樓層</label>
-      <input type="text" id="mod-floor">
-      <label>位置</label>
-      <input type="text" id="mod-location">
-      <label>到期日 (YYYY-MM-DD)</label>
-      <input type="date" id="mod-expiry">
-      <label>壓力錶</label>
-      <input type="text" id="mod-pressure">
-      <label>最後檢查日</label>
-      <input type="date" id="mod-lastDate">
-      <label>最後檢查人</label>
-      <input type="text" id="mod-lastUser">
+    <div class="container" style="padding-top: 15px;">
       
-      <button onclick="submitModifyExt()">確認修改</button>
-      <button class="btn-secondary" onclick="closeModal('modal-modify-ext')">取消</button>
-    </div>
-  </div>
-
-  <div id="modal-add-ask" class="modal-overlay">
-    <div class="modal-card">
-      <h4 style="margin-top:0; color:var(--primary-dark);">查無該滅火器編號</h4>
-      <p id="add-ask-text" style="margin:16px 0; line-height:1.6;"></p>
-      <button class="btn-success" onclick="openAddFormModal()">是，新增此滅火器</button>
-      <button class="btn-secondary" onclick="closeModal('modal-add-ask')">否，取消</button>
-    </div>
-  </div>
-
-  <div id="modal-add-form" class="modal-overlay">
-    <div class="modal-card" style="text-align:left;">
-      <h4 style="text-align:center; color:var(--primary-dark); margin-top:0;">新增滅火器</h4>
-      <label>編號 (自動帶入)</label>
-      <input type="text" id="add-id" disabled style="background:#eee;">
-      <label>樓層</label>
-      <input type="text" id="add-floor" placeholder="請輸入樓層 (例：1F)">
-      <label>位置</label>
-      <input type="text" id="add-location" placeholder="請輸入放置位置 (例：大廳)">
-      <label>到期日</label>
-      <input type="date" id="add-expiry">
-      
-      <button onclick="submitAddExt()">確認新增</button>
-      <button class="btn-secondary" onclick="closeModal('modal-add-form')">取消</button>
-    </div>
-  </div>
-
-  <script>
-    let currentUser = null;
-    let extList = [];
-    let html5QrcodeScanner = null;
-    let selectedExt = null;
-    let scannedBarcode = "";
-
-    // 切換頁面與 Tab
-    function switchView(viewId, tabId) {
-      ['v-scan', 'v-list', 'v-user'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
-      });
-      document.querySelectorAll('.tab-item').forEach(t => {
-        t.classList.remove('active');
-      });
-      
-      document.getElementById(viewId).classList.remove('hidden');
-      if (tabId) document.getElementById(tabId).classList.add('active');
-    }
-
-    // 彈窗操作
-    function showModal(id) { document.getElementById(id).style.display = "flex"; }
-    function closeModal(id) { document.getElementById(id).style.display = "none"; }
-    function showAlert(title, msg) {
-      document.getElementById("alert-title").innerText = title;
-      document.getElementById("alert-message").innerText = msg;
-      showModal("modal-alert");
-    }
-
-    // ---------------- 登入與登出管理 ----------------
-    function handleLogin() {
-      const idInput = document.getElementById("loginId").value.trim();
-      if (!idInput) return showAlert("提示", "請輸入編號或密碼");
-      
-      const btn = document.getElementById("loginBtn");
-      btn.disabled = true;
-      btn.innerText = "驗證中...";
-
-      google.script.run.withSuccessHandler(res => {
-        btn.disabled = false;
-        btn.innerText = "確認登入";
-        if (res.ok) {
-          currentUser = res;
-          document.getElementById("v-login").classList.add("hidden");
-          document.getElementById("tabs-bar").classList.remove("hidden");
-          document.getElementById("user-name-display").innerText = res.name;
-          document.getElementById("user-id-display").innerText = res.id;
+      <div id="pane-0" class="tab-pane">
+        <div class="card">
+          <h3>滅火器狀態掃描</h3>
           
-          switchView('v-scan', 't-scan');
-          loadAllExtinguishers();
-        } else {
-          showAlert("登入失敗", res.msg);
-        }
-      }).checkLoginById(idInput);
-    }
+          <div id="reader-container" class="hidden">
+            <div id="reader" style="width:100%;"></div>
+            <div class="scan-overlay"><div class="scan-laser"></div></div>
+          </div>
 
-    function handleLogout() {
-      stopScanner();
-      currentUser = null;
-      document.getElementById("tabs-bar").classList.add("hidden");
-      ['v-scan', 'v-list', 'v-user'].forEach(id => {
-        document.getElementById(id).classList.add('hidden');
+          <div id="scan-controls">
+            <button id="btn-start-scan" onclick="startScanner()">開啟相機掃描條碼</button>
+            <button id="btn-stop-scan" class="btn-danger hidden" onclick="stopScanner()">停止相機</button>
+          </div>
+        </div>
+
+        <div id="result-card" class="card hidden">
+          <h3>📋 滅火器資訊</h3>
+          <div class="info-row"><span class="info-label">編號：</span><span id="res-code">-</span></div>
+          <div class="info-row"><span class="info-label">樓層：</span><span id="res-floor">-</span></div>
+          <div class="info-row"><span class="info-label">位置：</span><span id="res-location">-</span></div>
+          <div class="info-row"><span class="info-label">到期日：</span><span id="res-expire">-</span></div>
+          <div class="info-row"><span class="info-label">壓力錶：</span><span id="res-pressure">-</span></div>
+          <div class="info-row"><span class="info-label">最後檢查日：</span><span id="res-last-date">-</span></div>
+          <div class="info-row"><span class="info-label">最後檢查人：</span><span id="res-last-checker">-</span></div>
+
+          <div style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+            <button class="btn-success" onclick="openCheckConfirm()">✅ 確認狀態 (正常/異常)</button>
+            <button class="btn-secondary" onclick="openFullEdit()">✏️ 修改所有資訊</button>
+            <button class="btn-danger" onclick="resetScanView()">❌ 離開 / 返回重新掃描</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="pane-1" class="tab-pane hidden">
+        <div class="card">
+          <h3>手動輸入查詢編號</h3>
+          <input type="text" id="manual-code-input" placeholder="請輸入滅火器編號">
+          <button onclick="handleManualQuery()">查詢編號</button>
+        </div>
+      </div>
+
+      <div id="pane-2" class="tab-pane hidden">
+        <div class="card" style="text-align: center;">
+          <h3>目前登入者</h3>
+          <p id="display-user-name" style="font-size: 1.2rem; font-weight: bold; color: var(--primary);"></p>
+          <button class="btn-danger" onclick="location.reload()">登出系統</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="edit-modal" class="card hidden" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); width:90%; max-width:450px; z-index:1000; box-shadow:0 0 20px rgba(0,0,0,0.3);">
+    <h3>修改滅火器資料</h3>
+    <label>編號：</label><input type="text" id="edit-code" readonly style="background:#e9ecef;">
+    <label>樓層：</label><input type="text" id="edit-floor">
+    <label>位置：</label><input type="text" id="edit-location">
+    <label>到期日：</label><input type="date" id="edit-expire">
+    <label>壓力錶狀態：</label>
+    <select id="edit-pressure"><option value="正常">正常</option><option value="異常">異常</option></select>
+    <button class="btn-success" onclick="submitFullEdit()">儲存修改</button>
+    <button class="btn-secondary" onclick="closeEditModal()">取消</button>
+  </div>
+
+<script>
+  // 🌟【請在此填入您的 Google Apps Script Web App 部署網址】
+  const GAS_API_URL = "YOUR_GAS_WEB_APP_URL_HERE";
+
+  let currentUser = null;
+  let currentExtData = null; // 當前查到的滅火器資料與 row 索引
+  let html5QrcodeScanner = null;
+
+  function showLoading(show) {
+    document.getElementById("loading-mask").style.display = show ? "flex" : "none";
+  }
+
+  // API 呼叫共用函式
+  async function callGasApi(action, payload = {}) {
+    showLoading(true);
+    try {
+      const response = await fetch(GAS_API_URL, {
+        method: "POST",
+        body: JSON.stringify({ action, ...payload })
       });
-      document.getElementById("v-login").classList.remove("hidden");
-      document.getElementById("loginId").value = "";
+      const result = await response.json();
+      showLoading(false);
+      return result;
+    } catch (err) {
+      showLoading(false);
+      alert("網路連線發生錯誤，請檢查 API 網址或網路狀況。");
+      console.error(err);
+      return { ok: false, msg: err.toString() };
+    }
+  }
+
+  // 1. 登入邏輯
+  async function handleLogin() {
+    const userId = document.getElementById("login-id").value.trim();
+    if (!userId) {
+      alert("請輸入編號！");
+      return;
     }
 
-    function handleChangeId() {
-      const oldId = document.getElementById("old-id-input").value.trim();
-      const newId = document.getElementById("new-id-input").value.trim();
-      if (!oldId || !newId) return showAlert("提示", "請填寫完整舊編號與新編號");
-      
-      google.script.run.withSuccessHandler(res => {
-        if (res.ok) {
-          showAlert("成功", "密碼編號已更新，請使用新編號重新登入！");
-          document.getElementById("old-id-input").value = "";
-          document.getElementById("new-id-input").value = "";
-          handleLogout();
-        } else {
-          showAlert("變更失敗", res.msg);
-        }
-      }).changeUserId(oldId, newId);
+    const res = await callGasApi("login", { userId });
+    if (res.ok) {
+      currentUser = res;
+      document.getElementById("login-view").classList.add("hidden");
+      document.getElementById("main-view").classList.remove("hidden");
+      document.getElementById("display-user-name").innerText = `${res.name} (ID: ${res.id})`;
+      document.getElementById("tab-user-info").innerText = res.name;
+    } else {
+      alert(res.msg || "登入失敗");
+    }
+  }
+
+  // 頁籤切換
+  function switchTab(index) {
+    const panes = document.querySelectorAll(".tab-pane");
+    const items = document.querySelectorAll(".tab-item");
+    panes.forEach((p, i) => p.classList.toggle("hidden", i !== index));
+    items.forEach((item, i) => {
+      if (i < 2) item.classList.toggle("active", i === index);
+    });
+    if (index !== 0) stopScanner();
+  }
+
+  // 2. 相機掃描模組
+  function startScanner() {
+    document.getElementById("btn-start-scan").classList.add("hidden");
+    document.getElementById("btn-stop-scan").classList.remove("hidden");
+    document.getElementById("reader-container").classList.remove("hidden");
+
+    if (!html5QrcodeScanner) {
+      html5QrcodeScanner = new Html5Qrcode("reader");
     }
 
-    // ---------------- 滅火器資料處理 ----------------
-    function loadAllExtinguishers() {
-      google.script.run.withSuccessHandler(res => {
-        if (res.ok) {
-          extList = res.data;
-          renderUninspectedTable();
-          renderExtinguisherList();
-        } else {
-          showAlert("載入錯誤", res.msg);
-        }
-      }).getExtinguishers();
-    }
+    const config = { fps: 15, qrbox: { width: 260, height: 100 } };
 
-    function isCheckedThisMonth(dateStr) {
-      if (!dateStr) return false;
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      return String(dateStr).startsWith(currentMonth);
-    }
-
-    function renderUninspectedTable() {
-      const tbody = document.getElementById("uninspected-tbody");
-      const uninspected = extList.filter(item => !isCheckedThisMonth(item.lastDate));
-      
-      if (uninspected.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="2" style="color:green; font-weight:bold;">恭喜，本月全館滅火器皆已檢查完成！</td></tr>';
-        return;
-      }
-      tbody.innerHTML = uninspected.map(item => `
-        <tr>
-          <td>${item.floor}</td>
-          <td>${item.location}</td>
-        </tr>
-      `).join('');
-    }
-
-    function renderExtinguisherList() {
-      const sortVal = document.getElementById("filter-sort").value;
-      const statusVal = document.getElementById("filter-status").value;
-      
-      let list = [...extList];
-      
-      if (statusVal === "CHECKED") {
-        list = list.filter(item => isCheckedThisMonth(item.lastDate));
-      } else if (statusVal === "UNCHECKED") {
-        list = list.filter(item => !isCheckedThisMonth(item.lastDate));
-      }
-      
-      if (sortVal === "NEW_OLD") {
-        list.sort((a, b) => (b.expiry || "").localeCompare(a.expiry || ""));
-      } else if (sortVal === "OLD_NEW") {
-        list.sort((a, b) => (a.expiry || "").localeCompare(b.expiry || ""));
-      }
-      
-      const tbody = document.getElementById("all-extinguishers-tbody");
-      if (list.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7">無對應條件的滅火器</td></tr>';
-        return;
-      }
-      tbody.innerHTML = list.map(item => `
-        <tr>
-          <td><strong>${item.id}</strong></td>
-          <td>${item.floor}</td>
-          <td>${item.location}</td>
-          <td>${item.expiry}</td>
-          <td style="color:${item.pressure === '正常' ? 'green' : 'red'}; font-weight:bold;">${item.pressure}</td>
-          <td>${item.lastDate}</td>
-          <td>${item.lastUser}</td>
-        </tr>
-      `).join('');
-    }
-
-    // ---------------- 相機條碼掃描模組 ----------------
-    async function startScanner() {
-      // 1. 切換 UI 狀態
-      document.getElementById("btn-start-scan").classList.add("hidden");
-      if (document.getElementById("btn-manual-input")) {
-        document.getElementById("btn-manual-input").classList.add("hidden");
-      }
-      document.getElementById("btn-stop-scan").classList.remove("hidden");
-      document.getElementById("reader-container").style.display = "block";
-
-      try {
-        // 2. 檢查瀏覽器是否支援相機 API
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          throw new Error("您的瀏覽器環境不支援相機存取 (請確認使用 HTTPS 網址及 Safari/Chrome 原生瀏覽器)");
-        }
-
-        // 🌟【關鍵修復 1】：先用最寬鬆的 { video: true } 觸發授權，確保電腦與手機都能 100% 跳出權限詢問框！
-        let tempStream;
-        try {
-          tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
-        } catch (authErr) {
-          throw authErr; // 權限被拒絕或無設備，直接拋出交由下方 catch 處理
-        }
-
-        // 授權成功後，關閉臨時預覽串流，交給掃描元件運作
-        if (tempStream) {
-          tempStream.getTracks().forEach(track => track.stop());
-        }
-
-        // 3. 初始化條碼掃描元件
-        if (!html5QrcodeScanner) {
-          html5QrcodeScanner = new Html5Qrcode("reader");
-        }
-
-        const config = { fps: 10, qrbox: { width: 260, height: 100 } };
-
-        // 🌟【關鍵修復 2】：優先試用後鏡頭 (不使用 exact 強制限制)，若為電腦則自動降級使用前置視訊鏡頭
-        try {
-          await html5QrcodeScanner.start(
-            { facingMode: "environment" },
-            config,
-            (decodedText) => {
-              stopScanner();
-              handleBarcodeScanned(decodedText.trim());
-            },
-            (error) => { /* 掃描中未偵測到條碼，忽略 */ }
-          );
-        } catch (camErr) {
-          console.warn("後置鏡頭啟動失敗，切換為預設/電腦相機...", camErr);
-          // 電腦筆電或無後鏡頭設備降級處理
-          await html5QrcodeScanner.start(
-            { facingMode: "user" },
-            config,
-            (decodedText) => {
-              stopScanner();
-              handleBarcodeScanned(decodedText.trim());
-            }
-          );
-        }
-
-      } catch (err) {
-        console.error("相機啟動失敗：", err);
+    html5QrcodeScanner.start(
+      { facingMode: "environment" },
+      config,
+      (decodedText) => {
         stopScanner();
+        if (navigator.vibrate) navigator.vibrate(100);
+        handleBarcodeScanned(decodedText.trim());
+      },
+      (err) => {}
+    ).catch(err => {
+      alert("無法開啟相機，請確認手機瀏覽器已允許相機權限。");
+      stopScanner();
+    });
+  }
 
-        let errorMsg = "無法開啟相機設備！\n\n";
-        if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
-          errorMsg += "點擊了「拒絕」授權，請至瀏覽器設定中重新允許相機權限。";
-        } else if (err.name === "NotFoundError" || err.name === "DevicesNotFoundError") {
-          errorMsg += "找不到任何相機視訊設備。";
-        } else if (err.name === "NotReadableError" || err.name === "TrackStartError") {
-          errorMsg += "相機可能正被其他軟體 (如 Teams / Zoom / LINE) 占用中。";
-        } else {
-          errorMsg += "提示：iPhone 請務必切換至 Safari 瀏覽器開啟網址！\n(iOS Chrome/LINE 會封鎖框架相機功能)";
+  function stopScanner() {
+    if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
+      html5QrcodeScanner.stop().catch(e => console.error(e));
+    }
+    document.getElementById("btn-start-scan").classList.remove("hidden");
+    document.getElementById("btn-stop-scan").classList.add("hidden");
+    document.getElementById("reader-container").classList.add("hidden");
+  }
+
+  // 3. 條碼掃描或查詢後的統一處理邏輯
+  async function handleBarcodeScanned(barcode) {
+    const res = await callGasApi("getFireExtinguisher", { barcode });
+    
+    if (res.found) {
+      currentExtData = res; // 紀錄資料與 row
+      document.getElementById("res-code").innerText = res.data.code;
+      document.getElementById("res-floor").innerText = res.data.floor;
+      document.getElementById("res-location").innerText = res.data.location;
+      document.getElementById("res-expire").innerText = res.data.expireDate;
+      document.getElementById("res-pressure").innerText = res.data.pressure;
+      document.getElementById("res-last-date").innerText = res.data.lastCheckDate;
+      document.getElementById("res-last-checker").innerText = res.data.lastChecker;
+      
+      document.getElementById("result-card").classList.remove("hidden");
+    } else {
+      // 找不到編號，詢問是否新增
+      if (confirm(`找不到編號 [${barcode}] 的滅火器紀錄！\n是否要新增此滅火器？`)) {
+        const floor = prompt("請輸入樓層：", "1F");
+        const location = prompt("請輸入擺放位置：", "");
+        const expireDate = prompt("請輸入到期日 (格式: YYYY-MM-DD)：", "2027-12-31");
+        
+        if (floor && location) {
+          const addRes = await callGasApi("addFireExtinguisher", {
+            code: barcode,
+            floor,
+            location,
+            expireDate: expireDate || "",
+            pressure: "正常",
+            lastCheckDate: new Date().toISOString().slice(0, 10),
+            lastChecker: currentUser.name
+          });
+          if (addRes.ok) {
+            alert("新增成功！");
+            handleBarcodeScanned(barcode); // 自動載入剛新增的資料
+          } else {
+            alert("新增失敗");
+          }
         }
-
-        showAlert("相機開啟提示", errorMsg);
       }
     }
+  }
 
-    function stopScanner() {
-      if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
-        html5QrcodeScanner.stop().catch(err => console.error(err));
-      }
-      document.getElementById("btn-start-scan").classList.remove("hidden");
-      document.getElementById("btn-stop-scan").classList.add("hidden");
-      document.getElementById("reader-container").style.display = "none";
+  // 手動查詢按鈕
+  function handleManualQuery() {
+    const code = document.getElementById("manual-code-input").value.trim();
+    if (!code) {
+      alert("請輸入編號");
+      return;
     }
+    switchTab(0); // 切回掃描頁面顯示結果
+    handleBarcodeScanned(code);
+  }
 
-    function handleBarcodeScanned(code) {
-      scannedBarcode = code;
-      const target = extList.find(item => String(item.id).trim() === code);
-      
-      if (target) {
-        selectedExt = target;
-        document.getElementById("ext-info-content").innerHTML = `
-          <strong>編號：</strong> ${target.id}<br>
-          <strong>樓層：</strong> ${target.floor}<br>
-          <strong>位置：</strong> ${target.location}<br>
-          <strong>到期日：</strong> ${target.expiry}<br>
-          <strong>壓力錶：</strong> <span style="color:${target.pressure === '正常' ? 'green' : 'red'}; font-weight:bold;">${target.pressure || '未紀錄'}</span><br>
-          <strong>最後檢查日：</strong> ${target.lastDate || '無紀錄'}<br>
-          <strong>最後檢查人：</strong> ${target.lastUser || '無紀錄'}
-        `;
-        showModal("modal-ext-info");
-      } else {
-        document.getElementById("add-ask-text").innerText = `條碼 [ ${code} ] 不在館內滅火器名單中，是否要立即新增此滅火器？`;
-        showModal("modal-add-ask");
-      }
+  // 4. 確認狀態按鈕 (正常/異常)
+  async function openCheckConfirm() {
+    const isNormal = confirm("是否確認壓力錶正常？\n點擊【確定】代表正常，點擊【取消】代表異常。");
+    const pressureStatus = isNormal ? "正常" : "異常";
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    const res = await callGasApi("updateFireExtinguisher", {
+      mode: "check",
+      rowIndex: currentExtData.rowIndex,
+      pressure: pressureStatus,
+      lastCheckDate: todayStr,
+      lastChecker: currentUser.name
+    });
+
+    if (res.ok) {
+      alert("檢查狀態已更新完成！");
+      handleBarcodeScanned(currentExtData.data.code); // 重新整理顯示
+    } else {
+      alert("更新失敗");
     }
+  }
 
-    // ---------------- 滅火器操作 (修改 / 確認 / 新增) ----------------
-    function openConfirmPressureModal() {
-      closeModal("modal-ext-info");
-      showModal("modal-pressure-confirm");
+  // 5. 修改所有資訊
+  function openFullEdit() {
+    const d = currentExtData.data;
+    document.getElementById("edit-code").value = d.code;
+    document.getElementById("edit-floor").value = d.floor;
+    document.getElementById("edit-location").value = d.location;
+    document.getElementById("edit-expire").value = d.expireDate;
+    document.getElementById("edit-pressure").value = d.pressure;
+    document.getElementById("edit-modal").classList.remove("hidden");
+  }
+
+  function closeEditModal() {
+    document.getElementById("edit-modal").classList.add("hidden");
+  }
+
+  async function submitFullEdit() {
+    const res = await callGasApi("updateFireExtinguisher", {
+      mode: "full",
+      rowIndex: currentExtData.rowIndex,
+      code: document.getElementById("edit-code").value,
+      floor: document.getElementById("edit-floor").value,
+      location: document.getElementById("edit-location").value,
+      expireDate: document.getElementById("edit-expire").value,
+      pressure: document.getElementById("edit-pressure").value,
+      lastCheckDate: currentExtData.data.lastCheckDate,
+      lastChecker: currentExtData.data.lastChecker
+    });
+
+    if (res.ok) {
+      alert("修改成功！");
+      closeEditModal();
+      handleBarcodeScanned(currentExtData.data.code);
+    } else {
+      alert("修改失敗");
     }
+  }
 
-    function submitPressure(isNormal) {
-      closeModal("modal-pressure-confirm");
-      google.script.run.withSuccessHandler(res => {
-        if (res.ok) {
-          showAlert("檢查成功", `壓力錶已填入：${isNormal ? "正常" : "異常"}`);
-          loadAllExtinguishers();
-        } else {
-          showAlert("錯誤", res.msg);
-        }
-      }).inspectExtinguisher(selectedExt.row, isNormal, currentUser.name);
-    }
-
-    function openModifyModal() {
-      closeModal("modal-ext-info");
-      document.getElementById("mod-id").value = selectedExt.id;
-      document.getElementById("mod-floor").value = selectedExt.floor;
-      document.getElementById("mod-location").value = selectedExt.location;
-      document.getElementById("mod-expiry").value = selectedExt.expiry;
-      document.getElementById("mod-pressure").value = selectedExt.pressure;
-      document.getElementById("mod-lastDate").value = selectedExt.lastDate;
-      document.getElementById("mod-lastUser").value = selectedExt.lastUser;
-      showModal("modal-modify-ext");
-    }
-
-    function submitModifyExt() {
-      const data = {
-        id: document.getElementById("mod-id").value,
-        floor: document.getElementById("mod-floor").value,
-        location: document.getElementById("mod-location").value,
-        expiry: document.getElementById("mod-expiry").value,
-        pressure: document.getElementById("mod-pressure").value,
-        lastDate: document.getElementById("mod-lastDate").value,
-        lastUser: document.getElementById("mod-lastUser").value
-      };
-      
-      closeModal("modal-modify-ext");
-      google.script.run.withSuccessHandler(res => {
-        if (res.ok) {
-          showAlert("修改成功", "滅火器資料已同步至試算表！");
-          loadAllExtinguishers();
-        } else {
-          showAlert("錯誤", res.msg);
-        }
-      }).updateExtinguisher(selectedExt.row, data);
-    }
-
-    function openAddFormModal() {
-      closeModal("modal-add-ask");
-      document.getElementById("add-id").value = scannedBarcode;
-      document.getElementById("add-floor").value = "";
-      document.getElementById("add-location").value = "";
-      document.getElementById("add-expiry").value = "";
-      showModal("modal-add-form");
-    }
-
-    function submitAddExt() {
-      const floor = document.getElementById("add-floor").value.trim();
-      const location = document.getElementById("add-location").value.trim();
-      const expiry = document.getElementById("add-expiry").value;
-      
-      if (!floor || !location) return showAlert("提示", "樓層與放置位置為必填欄位");
-
-      const info = {
-        id: scannedBarcode,
-        floor: floor,
-        location: location,
-        expiry: expiry
-      };
-
-      closeModal("modal-add-form");
-      google.script.run.withSuccessHandler(res => {
-        if (res.ok) {
-          showAlert("新增成功", "已成功建立滅火器資料！");
-          loadAllExtinguishers();
-        } else {
-          showAlert("錯誤", res.msg);
-        }
-      }).addExtinguisher(info);
-    }
-  </script>
+  function resetScanView() {
+    stopScanner();
+    document.getElementById("result-card").classList.add("hidden");
+    currentExtData = null;
+  }
+</script>
 </body>
 </html>
