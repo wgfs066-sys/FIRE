@@ -10,7 +10,7 @@
       --primary: #7e9e8d;      /* 莫蘭迪綠主色 */
       --primary-dark: #5a7b66; /* 深灰綠底色 */
       --bg: #f8faf9;           /* 灰綠調白背景 */
-      --card: #ffffff;          /* 白色卡片背景 */
+      --card: #ffffff;         /* 白色卡片背景 */
       --text: #333333;
     }
     body {
@@ -363,11 +363,32 @@
   </div>
 
   <script>
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyOwzB-gusEWV0ZTRyGvQUGbU7sP3_pD_clyZl3Tp-W6a-5EuT4e_MS_BKGvf0oDgtD/exec";
+
     let currentUser = null;
     let extList = [];
     let html5QrcodeScanner = null;
     let selectedExt = null;
     let scannedBarcode = "";
+
+    // ---------------- 統一 API 呼叫函式 (取代 google.script.run) ----------------
+    function callGAS(action, args, onSuccess, onFailure) {
+      fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8",
+        },
+        body: JSON.stringify({ action: action, args: args })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (onSuccess) onSuccess(data);
+      })
+      .catch(err => {
+        if (onFailure) onFailure(err);
+        else console.error("GAS 呼叫錯誤:", err);
+      });
+    }
 
     // ---------------- UI 與視圖控制 ----------------
     function switchView(viewId, tabId) {
@@ -399,8 +420,8 @@
       btn.disabled = true;
       btn.innerText = "驗證中...";
 
-      google.script.run
-        .withSuccessHandler(res => {
+      callGAS("checkLoginById", [idInput],
+        res => {
           btn.disabled = false;
           btn.innerText = "確認登入";
           if (res && res.ok) {
@@ -415,13 +436,13 @@
           } else {
             showAlert("登入失敗", res ? res.msg : "系統無回應，請稍後再試");
           }
-        })
-        .withFailureHandler(err => {
+        },
+        err => {
           btn.disabled = false;
           btn.innerText = "確認登入";
           showAlert("連線錯誤", err.message || "無法連線至伺服器");
-        })
-        .checkLoginById(idInput);
+        }
+      );
     }
 
     function handleLogout() {
@@ -440,8 +461,8 @@
       const newId = document.getElementById("new-id-input").value.trim();
       if (!oldId || !newId) return showAlert("提示", "請填寫完整舊編號與新編號");
       
-      google.script.run
-        .withSuccessHandler(res => {
+      callGAS("changeUserId", [oldId, newId], 
+        res => {
           if (res && res.ok) {
             showAlert("成功", "密碼編號已更新，請使用新編號重新登入！");
             document.getElementById("old-id-input").value = "";
@@ -450,14 +471,14 @@
           } else {
             showAlert("變更失敗", res ? res.msg : "變更失敗");
           }
-        })
-        .changeUserId(oldId, newId);
+        }
+      );
     }
 
     // ---------------- 滅火器資料處理與渲染 ----------------
     function loadAllExtinguishers() {
-      google.script.run
-        .withSuccessHandler(res => {
+      callGAS("getExtinguishers", [], 
+        res => {
           if (res && res.ok) {
             extList = res.data || [];
             renderUninspectedTable();
@@ -465,8 +486,8 @@
           } else {
             showAlert("載入錯誤", res ? res.msg : "讀取資料失敗");
           }
-        })
-        .getExtinguishers();
+        }
+      );
     }
 
     function isCheckedThisMonth(dateStr) {
@@ -607,16 +628,16 @@
         renderExtinguisherList();
       }
 
-      google.script.run
-        .withSuccessHandler(res => {
+      callGAS("inspectExtinguisher", [selectedExt.row, isNormal, currentUser ? currentUser.name : ""], 
+        res => {
           if (res && res.ok) {
             showAlert("檢查成功", `壓力錶已紀錄為：${pressureStatus}`);
             loadAllExtinguishers();
           } else {
             showAlert("錯誤", res ? res.msg : "資料更新失敗");
           }
-        })
-        .inspectExtinguisher(selectedExt.row, isNormal, currentUser ? currentUser.name : "");
+        }
+      );
     }
 
     function openModifyModal() {
@@ -644,16 +665,16 @@
       
       closeModal("modal-modify-ext");
       
-      google.script.run
-        .withSuccessHandler(res => {
+      callGAS("updateExtinguisher", [selectedExt.row, data], 
+        res => {
           if (res && res.ok) {
             showAlert("修改成功", "滅火器資料已成功同步！");
             loadAllExtinguishers();
           } else {
             showAlert("錯誤", res ? res.msg : "修改失敗");
           }
-        })
-        .updateExtinguisher(selectedExt.row, data);
+        }
+      );
     }
 
     function openAddFormModal() {
@@ -681,16 +702,16 @@
 
       closeModal("modal-add-form");
       
-      google.script.run
-        .withSuccessHandler(res => {
+      callGAS("addExtinguisher", [info], 
+        res => {
           if (res && res.ok) {
             showAlert("新增成功", "已成功建立滅火器資料！");
             loadAllExtinguishers();
           } else {
             showAlert("錯誤", res ? res.msg : "新增失敗");
           }
-        })
-        .addExtinguisher(info);
+        }
+      );
     }
   </script>
 </body>
