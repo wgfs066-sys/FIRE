@@ -341,20 +341,20 @@
       });
     }
 
-    /* 條碼相機掃描相關邏輯（強化弧形辨識與讀取判定） */
+/* 針對扁平弧形一維條碼優化的相機配置 */
     function openScanner() {
       showModal("modal-scanner");
       if (!html5QrcodeScanner) {
         html5QrcodeScanner = new Html5Qrcode("reader");
       }
 
-      // 1. 指定專屬的一維條碼格式
+      // 1. 照片為典型的 CODE_128 / CODE_39，限定格式可節省運算並大幅降低誤判率
       const formats = (typeof Html5QrcodeSupportedFormats !== 'undefined') ? [
         Html5QrcodeSupportedFormats.CODE_128,
         Html5QrcodeSupportedFormats.CODE_39
       ] : undefined;
 
-      // 2. 將高畫質解析度與扁平掃描框配置放入 config 物件中
+      // 2. 解析度與畫質設定必須放在 config.videoConstraints 內部
       const config = {
         fps: 30,
         qrbox: { width: 300, height: 60 },
@@ -363,14 +363,17 @@
           facingMode: "environment",
           width: { min: 1280, ideal: 1920, max: 3840 },
           height: { min: 720, ideal: 1080, max: 2160 }
+        },
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
         }
       };
 
-      // 3. 第一個參數嚴格遵守規定：只能傳入剛好 1 個鍵的物件
-      const cameraIdOrConfig = { facingMode: "environment" };
+      // 3. 第一個參數嚴格遵守規定：只能剛好 1 個 key
+      const cameraConfig = { facingMode: "environment" };
 
       html5QrcodeScanner.start(
-        cameraIdOrConfig,
+        cameraConfig,
         config,
         onScanSuccess,
         onScanFailure
@@ -379,7 +382,6 @@
         closeScanner();
       });
     }
-
     function stopScanner() {
       if (html5QrcodeScanner && html5QrcodeScanner.isScanning) {
         return html5QrcodeScanner.stop().catch(err => console.error(err));
