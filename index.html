@@ -348,35 +348,28 @@
         html5QrcodeScanner = new Html5Qrcode("reader");
       }
 
-      // 相機加速辨識配置
+      // 1. 照片為典型的 CODE_128 / CODE_39，限定格式可節省運算並大幅降低誤判率
       const formats = (typeof Html5QrcodeSupportedFormats !== 'undefined') ? [
-        Html5QrcodeSupportedFormats.QR_CODE,
         Html5QrcodeSupportedFormats.CODE_128,
-        Html5QrcodeSupportedFormats.CODE_39,
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.ITF,
-        Html5QrcodeSupportedFormats.CODABAR
+        Html5QrcodeSupportedFormats.CODE_39
       ] : undefined;
 
-      // 修正：針對一維條碼與弧形曲面採用長方形對準框與較高幀率
+      // 2. 關鍵修正：將掃描框壓為「寬 300px、高 60px」的細長扁框，徹底避開上下黑色表格框線
       const config = {
         fps: 30,
-        qrbox: { width: 280, height: 120 },
+        qrbox: { width: 300, height: 60 },
         aspectRatio: 1.0,
         experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true // 使用瀏覽器硬體加速條碼辨識
+          useBarCodeDetectorIfSupported: true // 啟用手機原生硬體條碼解碼晶片
         }
       };
       if (formats) config.formatsToSupport = formats;
 
-      // 修正：請求較高的相機解析度，幫助辨識瓶身弧形與細微條碼
+      // 3. 關鍵修正：請求 1920x1080 (1080p) 高解析度，確保弧形邊緣的細小線條仍有足夠像素辨識
       const cameraConfig = {
         facingMode: "environment",
-        width: { min: 640, ideal: 1280, max: 1920 },
-        height: { min: 480, ideal: 720, max: 1080 }
+        width: { min: 1280, ideal: 1920, max: 3840 },
+        height: { min: 720, ideal: 1080, max: 2160 }
       };
 
       html5QrcodeScanner.start(
