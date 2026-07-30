@@ -348,32 +348,29 @@
         html5QrcodeScanner = new Html5Qrcode("reader");
       }
 
-      // 1. 照片為典型的 CODE_128 / CODE_39，限定格式可節省運算並大幅降低誤判率
+      // 1. 指定專屬的一維條碼格式
       const formats = (typeof Html5QrcodeSupportedFormats !== 'undefined') ? [
         Html5QrcodeSupportedFormats.CODE_128,
         Html5QrcodeSupportedFormats.CODE_39
       ] : undefined;
 
-      // 2. 關鍵修正：將掃描框壓為「寬 300px、高 60px」的細長扁框，徹底避開上下黑色表格框線
+      // 2. 將高畫質解析度與扁平掃描框配置放入 config 物件中
       const config = {
         fps: 30,
         qrbox: { width: 300, height: 60 },
-        aspectRatio: 1.0,
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true // 啟用手機原生硬體條碼解碼晶片
+        formatsToSupport: formats,
+        videoConstraints: {
+          facingMode: "environment",
+          width: { min: 1280, ideal: 1920, max: 3840 },
+          height: { min: 720, ideal: 1080, max: 2160 }
         }
       };
-      if (formats) config.formatsToSupport = formats;
 
-      // 3. 關鍵修正：請求 1920x1080 (1080p) 高解析度，確保弧形邊緣的細小線條仍有足夠像素辨識
-      const cameraConfig = {
-        facingMode: "environment",
-        width: { min: 1280, ideal: 1920, max: 3840 },
-        height: { min: 720, ideal: 1080, max: 2160 }
-      };
+      // 3. 第一個參數嚴格遵守規定：只能傳入剛好 1 個鍵的物件
+      const cameraIdOrConfig = { facingMode: "environment" };
 
       html5QrcodeScanner.start(
-        cameraConfig,
+        cameraIdOrConfig,
         config,
         onScanSuccess,
         onScanFailure
