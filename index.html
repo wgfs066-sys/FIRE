@@ -84,7 +84,7 @@
     function showDetail(rowIndex) { state.selected=state.data.find(x=>String(x.rowIndex)===String(rowIndex)); if(!state.selected)return; const x=state.selected; $('detail-content').innerHTML=`<p><b>編號：</b>${escapeHtml(x.code)}</p><p><b>樓層：</b>${escapeHtml(x.floor)}</p><p><b>位置：</b>${escapeHtml(x.location)}</p><p><b>到期日：</b>${escapeHtml(x.expireDate)}</p><p><b>壓力：</b>${escapeHtml(x.pressure||'正常')}</p><p><b>上次巡檢：</b>${escapeHtml(x.lastCheckDate||'尚未巡檢')}</p>`; openModal('detail-modal'); }
     
     // 【修改重點】樂觀更新：立即變更記憶體、儲存到手機快取、移除本月未巡檢、並於背景執行上傳
-    ffunction saveCheck(pressure) {
+    function saveCheck(pressure) {
   if (!state.selected || !state.user) return;
   const item = state.selected;
   
