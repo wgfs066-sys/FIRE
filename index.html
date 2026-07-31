@@ -315,8 +315,10 @@
 
     const swapButton = document.createElement('button');
     swapButton.type = 'button'; swapButton.id = 'swap-button'; swapButton.textContent = '換位置';
-    swapButton.style.width = '100%'; swapButton.style.marginTop = '14px';
-    $('edit-form').insertBefore(swapButton, $('edit-form').querySelector('.row'));
+    swapButton.style.width = '100%'; swapButton.style.marginTop = '14px'; swapButton.style.marginBottom = '14px';
+    const submitBtn = $('edit-form').querySelector('button[type="submit"]');
+    const targetNode = (submitBtn.parentElement === $('edit-form')) ? submitBtn : submitBtn.parentElement;
+    $('edit-form').insertBefore(swapButton, targetNode);
     swapButton.addEventListener('click', openSwapModal);
     $('confirm-swap').addEventListener('click', swapLocations);
     $('cancel-swap').addEventListener('click', () => closeModal('swap-modal'));
