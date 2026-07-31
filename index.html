@@ -137,6 +137,7 @@
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('此瀏覽環境不支援相機存取。請使用部署後的 HTTPS 網址開啟系統。');
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
       stream.getTracks().forEach(track => track.stop());
+      await new Promise(resolve => setTimeout(resolve, 180));
     }
 
     async function startBarcodeScanner() {
@@ -174,6 +175,8 @@
           );
         } catch (optimizedError) {
           console.warn('快速相機設定不相容，改用相容模式', optimizedError);
+          try { await state.scanner.clear(); } catch (clearError) { console.debug('重設掃描器', clearError); }
+          state.scanner = new Html5Qrcode('reader');
           await state.scanner.start(
             { facingMode: 'environment' },
             { fps: 15, qrbox: { width: 280, height: 120 }, disableFlip: true },
