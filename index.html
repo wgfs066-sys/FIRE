@@ -51,7 +51,13 @@
     const API_URL = 'https://script.google.com/macros/s/AKfycbyRUe4PUGsvo7AB64k1SLzkxZ5IlrWGYgndhWRzw3MBF4K-WxxD5pMD2s0hqx3LUnwl/exec';
     const state = { user:null, data:[], selected:null, scanner:null };
     const $ = id => document.getElementById(id);
-    const today = () => new Date().toISOString().slice(0,10);
+    const today = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}/${m}/${day}`;
+};
     const month = () => today().slice(0,7);
     const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
     const normalizeDate = value => String(value || '').replace(/\//g, '-').slice(0,10);
@@ -104,7 +110,7 @@
       const adYear = Number(year) + 1911;
       const date = new Date(Date.UTC(adYear, Number(monthValue) - 1, Number(day)));
       if (!Number.isInteger(Number(year)) || Number(year) < 1 || date.getUTCFullYear() !== adYear || date.getUTCMonth() !== Number(monthValue) - 1 || date.getUTCDate() !== Number(day)) return null;
-      return `${adYear}-${String(monthValue).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      return `${adYear}/${String(monthValue).padStart(2, '0')}/${String(day).padStart(2, '0')}`;
     }
 
     function adDateToRocDate(value) {
@@ -264,23 +270,26 @@
     $('cancel-swap').addEventListener('click', () => closeModal('swap-modal'));
     $('add-scanned-ext').addEventListener('click', () => { closeModal('barcode-not-found-modal'); openAddForScannedCode(pendingScannedCode); });
     $('cancel-scanned-ext').addEventListener('click', () => closeModal('barcode-not-found-modal'));
-    $('add-form').onsubmit = async event => {
+    $('add-form').onsubmit = event => {
       event.preventDefault();
       const form = event.currentTarget;
       const values = Object.fromEntries(new FormData(form));
       const expireDate = rocDateToAdDate(values.rocYear, values.rocMonth, values.rocDay);
       if (!expireDate) return showAlert('請輸入有效的民國年月日。');
-      if (state.data.some(item => normalizeCode(item.code) === normalizeCode(values.code))) return showAlert('此滅火器編號已存在。');
+      const codeKey = normalizeCode(values.code);
+      state.pendingAddCodes ||= new Set();
+      if (state.data.some(item => normalizeCode(item.code) === codeKey) || state.pendingAddCodes.has(codeKey)) return showAlert('此滅火器編號已存在或正在新增中。');
       const payload = { code: values.code.trim(), floor: values.floor, location: values.location.trim(), expireDate, pressure: '正常', lastCheckDate: today(), lastChecker: state.user.name };
-      try {
-        const result = await api('addFireExtinguisherData', payload);
-        if (!result?.ok) throw new Error(result?.msg || '新增失敗');
-        form.reset();
-        await refresh();
-        showAlert('已新增滅火器。', '完成');
-      } catch (error) {
-        showAlert(error.message || '新增失敗', '錯誤');
-      }
+      state.pendingAddCodes.add(codeKey);
+      form.reset();
+      form.elements.code.focus();
+      api('addFireExtinguisherData', payload)
+        .then(result => {
+          if (!result?.ok) throw new Error(result?.msg || '新增失敗');
+          return refresh();
+        })
+        .catch(error => showAlert(`編號「${payload.code}」${error.message || '新增失敗'}`, '錯誤'))
+        .finally(() => state.pendingAddCodes.delete(codeKey));
     };
     $('edit-button').onclick = () => {
       const item = state.selected;
