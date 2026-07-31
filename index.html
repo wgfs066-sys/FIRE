@@ -394,47 +394,71 @@ let html5QrCode = null;
 let currentVideoTrack = null;
 
 // 啟動相機掃描
-function startScanner() {
-  // 1. 以 modal 彈窗顯示
+async function startScanner() {
   const scannerModal = document.getElementById("scanner-container");
+  const statusEl = document.getElementById("scan-status");
+
+  // 1. 先顯示彈窗
   scannerModal.style.display = "flex";
   scannerModal.classList.remove("hidden");
-  document.getElementById("scan-status").innerText = "相機啟動中...";
-  
-  if (!html5QrCode) {
-    // 開啟實驗性條碼硬體加速偵測 (大幅提高 1D/QR 條碼辨識率)
-    html5QrCode = new Html5Qrcode("reader", { 
-      experimentalFeatures: { useBarCodeDetectorIfSupported: true } 
-    });
+  statusEl.innerText = "正在請求相機權限...";
+
+  // 2. 檢查網頁環境 (必須是 HTTPS 或 localhost)
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    statusEl.innerText = "";
+    stopScanner();
+    showAlert("無法使用相機", "請確認網頁網址是否為安全的 HTTPS (https://)，HTTP 環境無法開啟相機。");
+    return;
   }
 
-  // 2. 優化掃描設定：提高 FPS、動態取景框適配一維條碼/QR Code
-  const config = {
-    fps: 15,                          // 提升至 15 偵，讓掃描更敏銳
-    qrbox: { width: 250, height: 180 }, // 稍寬的長方形框，對一維條碼或 QR Code 都有良好相容性
-    aspectRatio: 1.333,               // 對齊常見手機相機 4:3 比例
-    videoConstraints: {
-      facingMode: "environment",      // 強制使用後置鏡頭
-      focusMode: "continuous",        // 請求連續自動對焦
-      width: { min: 640, ideal: 1280 }, // 請求較高解析度輸入以利條碼解析
-      height: { min: 480, ideal: 720 }
-    }
-  };
+  try {
+    // 3. 【核心修正】先用原生 API 強制彈出瀏覽器的「允許相機存取」通知
+    const stream = await navigator.mediaDevices.getUserMedia({ 
+      video: { facingMode: "environment" } 
+    });
+    
+    // 取得授權後，立刻釋放原生鏡頭，讓給 Html5Qrcode 接管
+    stream.getTracks().forEach(track => track.stop());
 
-  html5QrCode.start(
-    { facingMode: "environment" },
-    config,
-    onScanSuccess
-  ).then(() => {
-    document.getElementById("scan-status").innerText = "請將條碼對準紅線";
-    // 檢查鏡頭是否支援縮放 (Zoom)
-    initZoomControls();
-  }).catch(err => {
-    document.getElementById("scan-status").innerText = "";
+    statusEl.innerText = "相機啟動中...";
+
+    // 4. 初始化套件 (精簡參數，避免過度要求造成跨平台相容性問題)
+    if (!html5QrCode) {
+      html5QrCode = new Html5Qrcode("reader");
+    }
+
+    const config = {
+      fps: 15,
+      qrbox: { width: 250, height: 180 },
+      aspectRatio: 1.333
+    };
+
+    // 5. 正式啟動畫面
+    await html5QrCode.start(
+      { facingMode: "environment" },
+      config,
+      onScanSuccess
+    );
+
+    statusEl.innerText = "請將條碼對準紅線";
+    
+    // 初始化縮放控制 (若支援)
+    if (typeof initZoomControls === 'function') {
+      initZoomControls();
+    }
+
+  } catch (err) {
+    console.error("相機權限或啟動錯誤:", err);
+    statusEl.innerText = "";
     stopScanner();
-    showAlert("相機啟動失敗", "請確定已授權相機權限，且網頁運行於 HTTPS 環境下。");
-    console.error("相機錯誤:", err);
-  });
+
+    // 針對不同錯誤給予明確提示
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      showAlert("相機權限被拒絕", "您先前可能點選了拒絕授權。請點擊網址列左側的「鎖頭 🔒」或「設定」圖示，手動重新開啟相機權限後再試一次。");
+    } else {
+      showAlert("相機啟動失敗", "無法取得相機畫面，請確定相機沒有被其他 App 佔用。");
+    }
+  }
 }
 
 // 關閉相機彈窗
