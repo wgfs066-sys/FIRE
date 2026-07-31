@@ -58,11 +58,19 @@
       const day = String(d.getDate()).padStart(2, '0');
       return `${y}/${m}/${day}`;
     };
-    const month = () => today().slice(0,7);
+    const month = () => normalizeDate(today()).slice(0, 7);
     const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
-    const normalizeDate = value => String(value || '').replace(/\//g, '-').slice(0,10);
+    const normalizeDate = value => {
+      if (!value) return '';
+      const clean = String(value).trim().replace(/\//g, '-').slice(0, 10);
+      const parts = clean.split('-');
+      if (parts.length === 3) {
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      }
+      return clean;
+    };
     const normalizeCode = value => String(value ?? '').trim().replace(/\s+/g, '').toUpperCase();
-    const checkedThisMonth = item => normalizeDate(item.lastCheckDate).slice(0,7) === month();
+    const checkedThisMonth = item => normalizeDate(item.lastCheckDate).slice(0, 7) === month();
     function showAlert(message, title='提示') { $('alert-title').textContent=title; $('alert-message').textContent=message; openModal('alert-modal'); }
     function openModal(id) { $(id).classList.add('open'); } function closeModal(id) { $(id).classList.remove('open'); }
     function api(action, payload) { return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,payload})}).then(r=>r.json()); }
