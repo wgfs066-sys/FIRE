@@ -237,26 +237,25 @@
   </div>
 
   <!-- 相機條碼掃描彈窗 -->
-  <div id="modal-scanner" class="modal-overlay">
-  <div class="modal-card" style="max-width: 360px; width: 92%;">
-    <h3 style="margin-top: 0; color: var(--primary-dark);">📷 條碼對齊掃描</h3>
-    <p style="font-size: 13px; color: #666; margin-bottom: 8px;">請將滅火器條碼置於紅色對準線中央</p>
-    
-    <div class="scanner-container-box" style="margin-bottom: 10px;">
-      <div id="reader" style="width: 100%; border-radius: 12px; overflow: hidden; background: #000;"></div>
-      <div class="scanner-laser-line"></div>
+  <div id="scanner-container" class="card hidden">
+  <div id="reader" style="width: 100%; max-width: 360px; margin: 0 auto;"></div>
+  
+  <!-- 變焦滑軌（預設隱藏，待相機啟動後檢測支援才顯示） -->
+  <div id="zoom-control" class="hidden" style="margin-top: 12px; text-align: center;">
+    <label for="zoom-slider" style="font-size: 14px; font-weight: bold; color: var(--primary-dark);">
+      鏡頭縮放
+    </label>
+    <div style="display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 4px;">
+      <span>1x</span>
+      <input type="range" id="zoom-slider" min="1" max="3" step="0.1" value="1" style="width: 60%;">
+      <span id="zoom-max-label">3x</span>
     </div>
-
-    <div id="zoom-control-box" style="margin: 8px 0 14px 0; padding: 10px 14px; background: #f2f5f4; border-radius: 10px; text-align: left;">
-      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: #555; margin-bottom: 4px;">
-        <span>🔍 鏡頭焦距縮放</span>
-        <span id="zoom-value-label" style="font-weight: bold; color: var(--primary-dark);">1.0x</span>
-      </div>
-      <input type="range" id="camera-zoom-slider" min="1" max="3" step="0.1" value="1" style="width: 100%; accent-color: var(--primary-dark); cursor: pointer;">
-    </div>
-
-    <button class="btn-danger" onclick="closeScannerModal()">關閉相機</button>
   </div>
+
+  <!-- 讀取狀態提示 -->
+  <div id="scan-status" style="text-align: center; color: var(--primary-dark); font-weight: bold; margin-top: 10px;"></div>
+
+  <button class="btn-secondary" onclick="stopScanner()" style="margin-top: 12px;">關閉相機</button>
 </div>
 
   <div id="modal-alert" class="modal-overlay">
@@ -378,134 +377,103 @@
       });
     }
 
-// --- 1. 修正：關閉相機視窗（優先關閉 UI，背景釋放鏡頭硬體）---
-function closeScannerModal() {
-  // 第一時間立即關閉彈窗
-  closeModal("modal-scanner");
+let html5QrCode = null;
+let currentVideoTrack = null;
 
-  // 背景安全釋放相機資源
-  if (html5QrcodeScanner) {
-    try {
-      if (html5QrcodeScanner.isScanning) {
-        html5QrcodeScanner.stop().then(() => {
-          html5QrcodeScanner.clear();
-        }).catch(err => {
-          console.warn("鏡頭停止提示:", err);
-        });
-      } else {
-        html5QrcodeScanner.clear();
-      }
-    } catch (e) {
-      console.warn("相機關閉例外，已忽略:", e);
-    }
+// 啟動相機掃描
+function startScanner() {
+  document.getElementById("scanner-container").classList.remove("hidden");
+  document.getElementById("scan-status").innerText = "";
+  
+  if (!html5QrCode) {
+    html5QrCode = new Html5Qrcode("reader");
   }
-}
-
-// --- 2. 開啟相機（扁平取景框 width:260, height:80，並初始化變焦滑軌）---
-function openScanner() {
-  // 1. 安全環境判定：排除 http:// 與 file:// 的無權限死胡同
-  if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
-    showAlert("安全性授權失敗", "開啟手機相機必須在「HTTPS 加密連線」網址下運行！\n請使用 GitHub Pages 的 https://... 網址開啟。");
-    return;
-  }
-
-  showModal("modal-scanner");
-  if (!html5QrcodeScanner) {
-    html5QrcodeScanner = new Html5Qrcode("reader");
-  }
-
-  const formats = (typeof Html5QrcodeSupportedFormats !== 'undefined') ? [
-    Html5QrcodeSupportedFormats.CODE_128,
-    Html5QrcodeSupportedFormats.CODE_39
-  ] : undefined;
 
   const config = {
-    fps: 30,
-    qrbox: { width: 260, height: 80 },
-    formatsToSupport: formats,
-    videoConstraints: {
-      facingMode: "environment",
-      width: { min: 1280, ideal: 1920, max: 3840 },
-      height: { min: 720, ideal: 1080, max: 2160 }
-    },
-    experimentalFeatures: {
-      useBarCodeDetectorIfSupported: true
-    }
+    fps: 10,
+    qrbox: { width: 220, height: 220 }, // 設定正方形小取景框，避免畫面過長
+    aspectRatio: 1.0
   };
 
-  html5QrcodeScanner.start(
-    { facingMode: "environment" },
+  html5QrCode.start(
+    { facingMode: "environment" }, // 使用後置鏡頭
     config,
-    onScanSuccess,
-    onScanFailure
+    onScanSuccess
   ).then(() => {
-    initCameraZoomControl();
+    // 檢查硬體是否支援縮放 (Zoom)
+    initZoomControls();
   }).catch(err => {
-    showAlert("相機開啟失敗", "手機瀏覽器拒絕了授權！\n1. 請確認已使用 Safari 或 Chrome 瀏覽器開啟。\n2. 請進入手機「設定」> 找到當前瀏覽器 > 將「相機」權限設為「允許」。");
-    closeScannerModal();
+    showAlert("相機啟動失敗", "請確定已授權相機權限，且網頁運行於 HTTPS 環境下。");
+    console.error("相機錯誤:", err);
   });
 }
 
-// --- 3. 鏡頭焦距縮放控制 ---
-function initCameraZoomControl() {
-  const slider = document.getElementById("camera-zoom-slider");
-  const label = document.getElementById("zoom-value-label");
-  if (!slider || !label) return;
+// 檢測鏡頭變焦並綁定滑軌
+function initZoomControls() {
+  try {
+    const videoElement = document.querySelector("#reader video");
+    if (!videoElement || !videoElement.srcObject) return;
 
-  slider.value = 1;
-  label.innerText = "1.0x";
+    currentVideoTrack = videoElement.srcObject.getVideoTracks()[0];
+    const capabilities = currentVideoTrack.getCapabilities();
 
-  slider.oninput = function() {
-    const zoomVal = Number(this.value);
-    label.innerText = zoomVal.toFixed(1) + "x";
+    if (capabilities && 'zoom' in capabilities) {
+      const zoomControl = document.getElementById("zoom-control");
+      const zoomSlider = document.getElementById("zoom-slider");
+      const zoomMaxLabel = document.getElementById("zoom-max-label");
 
-    if (html5QrcodeScanner) {
-      try {
-        html5QrcodeScanner.applyVideoConstraints({
-          advanced: [{ zoom: zoomVal }]
-        });
-      } catch (e) {
-        console.warn("不支援硬體縮放", e);
-      }
+      zoomSlider.min = capabilities.zoom.min;
+      zoomSlider.max = capabilities.zoom.max;
+      zoomSlider.step = capabilities.zoom.step || 0.1;
+      zoomSlider.value = capabilities.zoom.min;
+      zoomMaxLabel.innerText = `${capabilities.zoom.max}x`;
+
+      zoomControl.classList.remove("hidden");
+
+      zoomSlider.oninput = function(event) {
+        currentVideoTrack.applyConstraints({
+          advanced: [{ zoom: Number(event.target.value) }]
+        }).catch(err => console.log("變焦調整失敗:", err));
+      };
     }
-  };
+  } catch (e) {
+    console.log("不支援硬體縮放:", e);
+  }
 }
 
-// --- 4. 掃描成功處理（即時顯示已讀取條碼提示與比對）---
+// 掃描成功處理
 function onScanSuccess(decodedText) {
-  if (navigator.vibrate) navigator.vibrate(80);
+  // 1. 立即暫停或停止，避免重複掃描
+  html5QrCode.pause();
+  
+  // 2. 顯示讀取中提示
+  document.getElementById("scan-status").innerHTML = `<span class="spinner"></span> 已讀取條碼 (${decodedText})，資料核對中...`;
 
-  const scannedCode = String(decodedText).trim();
-
-  const syncIndicator = document.getElementById("sync-indicator");
-  if (syncIndicator) {
-    syncIndicator.innerText = `⚡ 已讀取條碼 [ ${scannedCode} ]，查詢中...`;
-  }
-
-  closeScannerModal();
-
+  // 3. 尋找對應滅火器並開啟檢查視窗
   setTimeout(() => {
-    if (syncIndicator) syncIndicator.innerText = "";
-
-    const foundExt = allData.find(d => String(d.code).trim() === scannedCode);
+    const foundExt = allData.find(d => d.code === decodedText.trim());
     if (foundExt) {
+      stopScanner();
       selectedExt = { rowIndex: foundExt.rowIndex, data: foundExt };
       renderExtInfo(selectedExt.data);
       showModal("modal-ext-info");
     } else {
-      showConfirmModal(
-        "查無條碼紀錄",
-        `系統中查無編號「${scannedCode}」的滅火器！\n是否要立即新增此滅火器？`,
-        function() {
-          switchView('v-user', 't-user');
-          const addIdInput = document.getElementById("add-id");
-          if (addIdInput) addIdInput.value = scannedCode;
-          const addFloorInput = document.getElementById("add-floor");
-          if (addFloorInput) addFloorInput.focus();
-        }
-      );
+      document.getElementById("scan-status").innerText = "找不到對應的滅火器編號： " + decodedText;
+      html5QrCode.resume(); // 找不到時恢復掃描
     }
-  }, 150);
+  }, 500);
+}
+
+// 關閉相機
+function stopScanner() {
+  if (html5QrCode && html5QrCode.isScanning) {
+    html5QrCode.stop().then(() => {
+      document.getElementById("scanner-container").classList.add("hidden");
+      document.getElementById("zoom-control").classList.add("hidden");
+    }).catch(err => console.error(err));
+  } else {
+    document.getElementById("scanner-container").classList.add("hidden");
+  }
 }
 
 // --- 5. 樓層數字轉換輔助函式 ---
@@ -524,81 +492,81 @@ function parseFloorNum(floorStr) {
 
 // --- 6. 所有設備清單（按樓層低➔高自動分組，顯示：🏢 1F - 共 2 支）---
 function renderList() {
-  const sortSelect = document.getElementById("filter-sort");
-  const statusSelect = document.getElementById("filter-status");
-  const sortVal = sortSelect ? sortSelect.value : "all";
-  const statusVal = statusSelect ? statusSelect.value : "all";
+  const sortVal = document.getElementById("filter-sort").value;
+  const statusVal = document.getElementById("filter-status").value;
+  
   let filtered = [...allData];
 
-  // 1. 依狀態篩選（本月已檢查 / 本月未檢查）
+  // 1. 狀態篩選
   if (statusVal === "done") {
     filtered = filtered.filter(d => getYearMonthString(d.lastCheckDate) === currentMonthStr);
   } else if (statusVal === "undone") {
     filtered = filtered.filter(d => getYearMonthString(d.lastCheckDate) !== currentMonthStr);
   }
 
-  // 2. 依到期日進行內部排序
-  if (sortVal === "new_old") {
-    filtered.sort((a, b) => new Date(b.expireDate || '1970') - new Date(a.expireDate || '1970'));
-  } else if (sortVal === "old_new") {
-    filtered.sort((a, b) => new Date(a.expireDate || '1970') - new Date(b.expireDate || '1970'));
-  }
-
   const container = document.getElementById("all-data-list");
-  if (!container) return;
-
   if (filtered.length === 0) {
-    container.innerHTML = "<div class='card' style='text-align:center;'>無符合條件的資料</div>";
+    container.innerHTML = `<p style="text-align:center; color:#888;">無符合條件的資料</p>`;
     return;
   }
 
-  // 3. 依樓層將資料歸類分組 (1F, 2F...)
-  const floorGroups = {};
-  filtered.forEach(item => {
-    const floorKey = (item.floor && String(item.floor).trim()) ? String(item.floor).trim() : "其他樓層";
-    if (!floorGroups[floorKey]) floorGroups[floorKey] = [];
-    floorGroups[floorKey].push(item);
-  });
+  // 2. 排序與分組顯示邏輯
+  if (sortVal === "default") {
+    // 依樓層低到高排序
+    filtered.sort((a, b) => parseFloorNum(a.floor) - parseFloorNum(b.floor));
 
-  // 4. 關鍵排序：依樓層數字由低至高 (1F ➔ 2F ➔ 3F ➔ 10F...) 進行排序
-  const sortedFloorKeys = Object.keys(floorGroups).sort((a, b) => {
-    return parseFloorNum(a) - parseFloorNum(b);
-  });
+    // 依樓層分組物件 { "1F": [item1, item2], "2F": [...] }
+    const grouped = {};
+    filtered.forEach(item => {
+      const fl = item.floor || "未知樓層";
+      if (!grouped[fl]) grouped[fl] = [];
+      grouped[fl].push(item);
+    });
 
-  // 5. 組合各樓層 HTML 結果
-  let htmlOutput = "";
-  sortedFloorKeys.forEach(floorKey => {
-    const itemsInFloor = floorGroups[floorKey];
-    const totalCount = itemsInFloor.length;
-
-    // 樓層統計標題列 (帶有綠色背底的專屬群組橫幅)
-    htmlOutput += `
-      <div class="floor-group-header">
-        <span>🏢 ${floorKey}</span>
-        <span class="floor-group-badge">共 ${totalCount} 支</span>
-      </div>
-    `;
-
-    itemsInFloor.forEach(d => {
-      const isDone = getYearMonthString(d.lastCheckDate) === currentMonthStr;
+    let htmlOutput = "";
+    Object.keys(grouped).forEach(floor => {
+      const items = grouped[floor];
+      // 加入樓層統計標題
       htmlOutput += `
-        <div class="list-item">
-          <div>
-            <div style="font-weight:bold; font-size:16px; margin-bottom:4px;">
-              ${d.code} (${d.floor})
-              <span class="list-badge ${isDone ? 'bg-green' : 'bg-red'}">${isDone ? '已檢查' : '未檢查'}</span>
-            </div>
-            <div style="font-size:14px; color:#555;">位置：${d.location}</div>
-            <div style="font-size:13px; color:#888;">到期：${d.expireDate}</div>
-            <div style="font-size:13px; color:#888;">最後檢查日：${d.lastCheckDate || '無紀錄'}</div>
-          </div>
-          <button class="btn-sm btn-outline" onclick="handleDirectModifyByRow(${d.rowIndex})">修改資料</button>
+        <div style="background:var(--primary-dark); color:white; padding:8px 12px; border-radius:8px; margin:14px 0 8px 0; font-weight:bold; font-size:15px; display:flex; justify-content:space-between;">
+          <span>樓層：${floor}</span>
+          <span>共 ${items.length} 支</span>
         </div>
       `;
+      // 輸出該樓層所有滅火器卡片
+      items.forEach(d => {
+        htmlOutput += createExtListItemHtml(d);
+      });
     });
-  });
 
-  container.innerHTML = htmlOutput;
+    container.innerHTML = htmlOutput;
+  } else {
+    // 如果是日期排序 (近➔遠 或 遠➔近)，不顯示樓層分組
+    if (sortVal === "new_old") {
+      filtered.sort((a, b) => new Date(b.expireDate || '1970') - new Date(a.expireDate || '1970'));
+    } else if (sortVal === "old_new") {
+      filtered.sort((a, b) => new Date(a.expireDate || '1970') - new Date(b.expireDate || '1970'));
+    }
+    container.innerHTML = filtered.map(d => createExtListItemHtml(d)).join('');
+  }
+}
+
+// 產生單一滅火器列表卡片 HTML（方便重複利用）
+function createExtListItemHtml(d) {
+  const isDone = getYearMonthString(d.lastCheckDate) === currentMonthStr;
+  return `
+  <div class="list-item" style="flex-direction:column; align-items:flex-start;">
+    <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+      <strong>${d.code} (${d.floor})</strong>
+      <span class="list-badge ${isDone ? 'bg-green' : 'bg-red'}">${isDone ? '已檢查' : '未檢查'}</span>
+    </div>
+    <div style="font-size:14px; color:#555;">位置：${d.location}</div>
+    <div style="font-size:14px; color:#555;">到期：${d.expireDate}</div>
+    <div style="font-size:14px; color:#555;">最後檢查日：${d.lastCheckDate || '無紀錄'}</div>
+    <div style="width:100%; display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+      <button class="btn-outline btn-sm" onclick="handleDirectModifyByRow(${d.rowIndex})">修改資料</button>
+    </div>
+  </div>`;
 }
     
     function toggleAddCalendarType() {
