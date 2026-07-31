@@ -161,7 +161,7 @@
   </div>
 
   <div id="v-scan" class="card hidden">
-    <button class="btn-success" style="margin-bottom: 12px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="openScanner()">
+    <button class="btn-success" style="margin-bottom: 12px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="()">
       📷 掃描條碼檢查滅火器
     </button>
 
@@ -403,6 +403,12 @@ function closeScannerModal() {
 
 // --- 2. 開啟相機（扁平取景框 width:260, height:80，並初始化變焦滑軌）---
 function openScanner() {
+  // 1. 安全環境判定：排除 http:// 與 file:// 的無權限死胡同
+  if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+    showAlert("安全性授權失敗", "開啟手機相機必須在「HTTPS 加密連線」網址下運行！\n請使用 GitHub Pages 的 https://... 網址開啟。");
+    return;
+  }
+
   showModal("modal-scanner");
   if (!html5QrcodeScanner) {
     html5QrcodeScanner = new Html5Qrcode("reader");
@@ -435,7 +441,7 @@ function openScanner() {
   ).then(() => {
     initCameraZoomControl();
   }).catch(err => {
-    showAlert("相機開啟失敗", "請確認是否已授權相機權限：" + err);
+    showAlert("相機開啟失敗", "手機瀏覽器拒絕了授權！\n1. 請確認已使用 Safari 或 Chrome 瀏覽器開啟。\n2. 請進入手機「設定」> 找到當前瀏覽器 > 將「相機」權限設為「允許」。");
     closeScannerModal();
   });
 }
@@ -524,12 +530,14 @@ function renderList() {
   const statusVal = statusSelect ? statusSelect.value : "all";
   let filtered = [...allData];
 
+  // 1. 依狀態篩選（本月已檢查 / 本月未檢查）
   if (statusVal === "done") {
     filtered = filtered.filter(d => getYearMonthString(d.lastCheckDate) === currentMonthStr);
   } else if (statusVal === "undone") {
     filtered = filtered.filter(d => getYearMonthString(d.lastCheckDate) !== currentMonthStr);
   }
 
+  // 2. 依到期日進行內部排序
   if (sortVal === "new_old") {
     filtered.sort((a, b) => new Date(b.expireDate || '1970') - new Date(a.expireDate || '1970'));
   } else if (sortVal === "old_new") {
@@ -544,7 +552,7 @@ function renderList() {
     return;
   }
 
-  // 依樓層歸類分組
+  // 3. 依樓層將資料歸類分組 (1F, 2F...)
   const floorGroups = {};
   filtered.forEach(item => {
     const floorKey = (item.floor && String(item.floor).trim()) ? String(item.floor).trim() : "其他樓層";
@@ -552,17 +560,18 @@ function renderList() {
     floorGroups[floorKey].push(item);
   });
 
-  // 依樓層由低到高 (例：1F ➔ 2F ➔ 3F) 排序
+  // 4. 關鍵排序：依樓層數字由低至高 (1F ➔ 2F ➔ 3F ➔ 10F...) 進行排序
   const sortedFloorKeys = Object.keys(floorGroups).sort((a, b) => {
     return parseFloorNum(a) - parseFloorNum(b);
   });
 
+  // 5. 組合各樓層 HTML 結果
   let htmlOutput = "";
   sortedFloorKeys.forEach(floorKey => {
     const itemsInFloor = floorGroups[floorKey];
     const totalCount = itemsInFloor.length;
 
-    // 樓層統計標題列
+    // 樓層統計標題列 (帶有綠色背底的專屬群組橫幅)
     htmlOutput += `
       <div class="floor-group-header">
         <span>🏢 ${floorKey}</span>
