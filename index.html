@@ -84,49 +84,49 @@
     function showDetail(rowIndex) { state.selected=state.data.find(x=>String(x.rowIndex)===String(rowIndex)); if(!state.selected)return; const x=state.selected; $('detail-content').innerHTML=`<p><b>編號：</b>${escapeHtml(x.code)}</p><p><b>樓層：</b>${escapeHtml(x.floor)}</p><p><b>位置：</b>${escapeHtml(x.location)}</p><p><b>到期日：</b>${escapeHtml(x.expireDate)}</p><p><b>壓力：</b>${escapeHtml(x.pressure||'正常')}</p><p><b>上次巡檢：</b>${escapeHtml(x.lastCheckDate||'尚未巡檢')}</p>`; openModal('detail-modal'); }
     
     // 【修改重點】樂觀更新：立即變更記憶體、儲存到手機快取、移除本月未巡檢、並於背景執行上傳
-    function saveCheck(pressure) {
-      if (!state.selected || !state.user) return;
-      const item = state.selected;
-      
-      const backup = {
-        pressure: item.pressure,
-        lastCheckDate: item.lastCheckDate,
-        lastChecker: item.lastChecker
-      };
+    ffunction saveCheck(pressure) {
+  if (!state.selected || !state.user) return;
+  const item = state.selected;
+  
+  // 1. 備份舊狀態（供 API 失敗時還原）
+  const backup = {
+    pressure: item.pressure,
+    lastCheckDate: item.lastCheckDate,
+    lastChecker: item.lastChecker
+  };
 
-      const payload = {
-        mode: 'check',
-        rowIndex: item.rowIndex,
-        pressure,
-        lastCheckDate: today(),
-        lastChecker: state.user.name
-      };
+  const payload = {
+    mode: 'check',
+    rowIndex: item.rowIndex,
+    pressure,
+    lastCheckDate: today(), // 輸出 yyyy/mm/dd
+    lastChecker: state.user.name
+  };
 
-      // 1. 立即更新本地 state 與 localStorage 快取
-      Object.assign(item, payload);
+  // 2.【前端立即更新】修改記憶體資料與手機快取
+  Object.assign(item, payload);
+  localStorage.setItem('fireExt_allData', JSON.stringify(state.data));
+
+  // 3.【前端立即重繪】關閉對話框並重新渲染畫面
+  closeModal('detail-modal');
+  render(); // 因為 lastCheckDate 已更新為本月，這裡會立刻從「本月未巡檢」移除！
+  showAlert('巡檢完成，正在背景同步至試算表…', '成功');
+
+  // 4.【背景發送 API】同步至 Google 試算表
+  api('updateFireExtinguisherData', payload)
+    .then(res => {
+      if (!res?.ok) throw new Error(res?.msg || '同步失敗');
       localStorage.setItem('fireExt_allData', JSON.stringify(state.data));
-
-      // 2. 立即關閉彈窗並重新渲染（該項目將即刻從「本月未巡檢」清單中移除）
-      closeModal('detail-modal');
+    })
+    .catch(error => {
+      console.error('巡檢背景同步失敗:', error);
+      // 後端更新失敗時自動復原資料，並重新放回「本月未巡檢」
+      Object.assign(item, backup);
+      localStorage.setItem('fireExt_allData', JSON.stringify(state.data));
       render();
-      showAlert('更新成功，正在背景同步…', '成功');
-
-      // 3. 背景執行 API 同步
-      api('updateFireExtinguisherData', payload)
-        .then(res => {
-          if (!res?.ok) throw new Error(res?.msg || '同步失敗');
-          localStorage.setItem('fireExt_allData', JSON.stringify(state.data));
-        })
-        .catch(error => {
-          console.error('巡檢背景更新失敗:', error);
-          // 若後端發生異常，自動還原至先前的狀態與 cache，並重新渲染
-          Object.assign(item, backup);
-          localStorage.setItem('fireExt_allData', JSON.stringify(state.data));
-          render();
-          showAlert(`編號「${item.code}」同步失敗，已回覆未巡檢狀態：${error.message || '網路異常'}`, '錯誤');
-        });
-    }
-
+      showAlert(`編號「${item.code}」同步失敗，已恢復為未巡檢狀態：${error.message || '網路異常'}`, '錯誤');
+    });
+}
     async function startScanner() { if(!state.data.length)return showAlert('滅火器資料尚未載入完成，請稍候再試。'); if(!window.Html5Qrcode){showAlert('掃描元件載入失敗，請確認網路連線。','錯誤');return;} openModal('scanner-modal'); $('scan-status').textContent='正在啟動相機…'; try { state.scanner ||= new Html5Qrcode('reader'); const formats=window.Html5QrcodeSupportedFormats; const supported=[formats?.CODE_128,formats?.CODE_39,formats?.CODE_93,formats?.CODE_39_VIN,formats?.EAN_13,formats?.EAN_8,formats?.UPC_A,formats?.UPC_E,formats?.ITF,formats?.QR_CODE].filter(Number.isInteger); await state.scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:300,height:120},aspectRatio:2.5,disableFlip:true,formatsToSupport:supported},text=>{ const scannedCode=normalizeCode(text); stopScanner(); const item=state.data.find(x=>normalizeCode(x.code)===scannedCode); item?showDetail(item.rowIndex):showAlert(`已讀取條碼「${text}」，但資料表中找不到相同的滅火器編號。`); }); $('scan-status').textContent='請將橫向條碼完整置於掃描框內'; } catch(error) { console.error(error); stopScanner(); showAlert('無法啟動相機。請允許相機權限，並以 HTTPS 網址開啟頁面。','相機錯誤'); } }
     async function stopScanner() { try { if(state.scanner?.isScanning)await state.scanner.stop(); } catch(error) { console.warn(error); } closeModal('scanner-modal'); }
     $('login-button').onclick=async()=>{ const id=$('login-id').value.trim(); if(!id)return showAlert('請輸入員工編號。'); $('login-button').disabled=true; try { const res=await api('checkLoginById',id); if(!res?.ok)throw new Error(res?.msg||'登入失敗'); state.user=res; localStorage.setItem('fireExt_currentUser',JSON.stringify(res)); $('user-name').textContent=res.name; $('user-id').textContent=res.id; $('login').classList.remove('active'); $('tabs').classList.remove('hidden'); setView('scan'); await refresh(true); } catch(error) { showAlert(error.message||'登入失敗','錯誤'); } finally { $('login-button').disabled=false; } };
