@@ -26,7 +26,7 @@
     .floor-group { margin-top:14px; }.floor-group:first-child { margin-top:0; }.floor-heading { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; color:white; background:var(--primary-dark); border-radius:9px; font-size:.95rem; font-weight:750; }.floor-count { padding:2px 8px; border-radius:99px; background:#ffffff2e; font-size:.82rem; }
     .toolbar { display:flex; gap:10px; align-items:center; }.toolbar select { max-width:170px; }.toolbar h2 { flex:1; margin:0; }.empty { margin:0; padding:20px; color:#66736b; text-align:center; }.notice { min-height:20px; color:#66736b; text-align:center; font-size:.85rem; } #sync-status { display:none; } #list .toolbar { flex-wrap:nowrap; } #list .toolbar select { flex:1; min-width:0; max-width:none; }
     .modal { display:none; position:fixed; inset:0; z-index:20; padding:16px; background:#0008; align-items:center; justify-content:center; }.modal.open { display:flex; }.dialog { width:min(100%,480px); max-height:90vh; overflow:auto; padding:20px; background:white; border-radius:16px; box-shadow:0 8px 32px #0005; }.dialog h2 { margin-bottom:10px; }.dialog .row:last-child { margin-top:16px; }.dialog .row button { flex:1; }
-    #reader { overflow:hidden; min-height:250px; border-radius:10px; background:#111; }.scanner-note { margin:8px 0 0; color:#56645b; text-align:center; font-size:.85rem; }.zoom-control { display:none; margin-top:12px; }.zoom-control.visible { display:block; }.zoom-control label { display:flex; justify-content:space-between; margin:0 0 5px; }.zoom-control input { accent-color:var(--primary-dark); padding:0; }
+    #reader { overflow:hidden; min-height:250px; border-radius:10px; background:#111; cursor:crosshair; }.scanner-note { margin:8px 0 0; color:#56645b; text-align:center; font-size:.85rem; }.zoom-control { display:none; margin-top:12px; }.zoom-control.visible { display:block; }.zoom-control label { display:flex; justify-content:space-between; margin:0 0 5px; }.zoom-control input { accent-color:var(--primary-dark); padding:0; }
     .hidden { display:none!important; } @media (max-width:440px) { .list-item { flex-direction:column; }.actions { justify-content:flex-end; }.toolbar { align-items:flex-start; flex-wrap:wrap; }.toolbar h2 { flex-basis:100%; } #list .toolbar { flex-wrap:nowrap; } }
   </style>
 </head>
@@ -45,7 +45,7 @@
   </div>
   <div id="scanner-modal" class="modal"><div class="dialog"><h2>掃描滅火器條碼</h2><div id="reader"></div><p id="scan-status" class="scanner-note">正在啟動相機…</p><button id="stop-scan" class="secondary" style="width:100%;margin-top:12px">關閉掃描器</button></div></div>
   <div id="detail-modal" class="modal"><div class="dialog"><h2>滅火器資料</h2><div id="detail-content"></div><div class="row"><button id="check-normal">壓力正常</button><button id="check-abnormal" class="danger">壓力異常</button></div><button id="edit-button" class="outline" style="width:100%;margin-top:10px">編輯資料</button><button class="secondary close-modal" style="width:100%;margin-top:10px">關閉</button></div></div>
-  <div id="edit-modal" class="modal"><div class="dialog"><h2>編輯滅火器</h2><form id="edit-form"><label>編號</label><input name="code" required><label>樓層</label><input name="floor" required><label>位置</label><input name="location" required><label>到期日</label><input name="expireDate" type="date" required><label>壓力狀態</label><select name="pressure"><option value="正常">正常</option><option value="異常">異常</option></select><div class="row"><button>儲存</button><button type="button" class="secondary close-modal">取消</button></div></form></div></div>
+  <div id="edit-modal" class="modal"><div class="dialog"><h2>編輯滅火器</h2><form id="edit-form"><label>編號</label><input name="code" required><label>樓層</label><select name="floor" required><option value="1F">1F</option><option value="2F">2F</option><option value="3F">3F</option><option value="4F">4F</option><option value="5F">5F</option><option value="6F">6F</option><option value="7F">7F</option><option value="8F">8F</option><option value="9F">9F</option></select><label>位置</label><input name="location" required><label>到期日（民國年）</label><div class="row compact"><input name="rocYear" type="number" inputmode="numeric" min="1" required><span>年</span><input name="rocMonth" type="number" inputmode="numeric" min="1" max="12" required><span>月</span><input name="rocDay" type="number" inputmode="numeric" min="1" max="31" required><span>日</span></div><label>壓力狀態</label><select name="pressure"><option value="正常">正常</option><option value="異常">異常</option></select><div class="row"><button>儲存</button><button type="button" class="secondary close-modal">取消</button></div></form></div></div>
   <div id="alert-modal" class="modal"><div class="dialog"><h2 id="alert-title">提示</h2><p id="alert-message"></p><button class="close-modal" style="width:100%">確定</button></div></div>
   <script>
     const API_URL = 'https://script.google.com/macros/s/AKfycbyRUe4PUGsvo7AB64k1SLzkxZ5IlrWGYgndhWRzw3MBF4K-WxxD5pMD2s0hqx3LUnwl/exec';
@@ -87,6 +87,7 @@
     function openAddForScannedCode(code) {
       setView('account');
       const form = $('add-form');
+      if (!form) { showAlert('新增表單尚未載入，請重新整理頁面後再試。', '錯誤'); return; }
       form.reset();
       form.elements.code.value = code;
       form.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -104,6 +105,11 @@
       const date = new Date(Date.UTC(adYear, Number(monthValue) - 1, Number(day)));
       if (!Number.isInteger(Number(year)) || Number(year) < 1 || date.getUTCFullYear() !== adYear || date.getUTCMonth() !== Number(monthValue) - 1 || date.getUTCDate() !== Number(day)) return null;
       return `${adYear}-${String(monthValue).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+
+    function adDateToRocDate(value) {
+      const [year, monthValue, day] = normalizeDate(value).split('-').map(Number);
+      return { year: year - 1911, month: monthValue, day };
     }
 
     function activeCameraTrack() {
@@ -131,6 +137,18 @@
       if (!track) return;
       try { await track.applyConstraints({ advanced: [{ zoom: Number($('zoom-slider').value) }] }); }
       catch (error) { console.debug('縮放設定失敗', error); }
+    }
+
+    async function refocusCamera() {
+      const track = activeCameraTrack();
+      const capabilities = track?.getCapabilities?.();
+      if (!track || !capabilities?.focusMode) return;
+      try {
+        const focusMode = capabilities.focusMode.includes('single-shot') ? 'single-shot' : 'continuous';
+        await track.applyConstraints({ advanced: [{ focusMode }] });
+        $('scan-status').textContent = '正在重新對焦…';
+        setTimeout(() => { if (state.scanner?.isScanning) $('scan-status').textContent = '請將橫向條碼完整置於掃描框內，可用下方滑桿縮放或點畫面重新對焦'; }, 450);
+      } catch (error) { console.debug('相機不支援手動重新對焦', error); }
     }
 
     async function requestCameraAccess() {
@@ -184,7 +202,7 @@
           );
         }
         await configureCameraZoom();
-        $('scan-status').textContent = '請將橫向條碼完整置於掃描框內，可用下方滑桿縮放';
+        $('scan-status').textContent = '請將橫向條碼完整置於掃描框內，可用下方滑桿縮放或點畫面重新對焦';
       } catch (error) {
         console.error(error);
         await stopScanner();
@@ -248,7 +266,8 @@
     $('cancel-scanned-ext').addEventListener('click', () => closeModal('barcode-not-found-modal'));
     $('add-form').onsubmit = async event => {
       event.preventDefault();
-      const values = Object.fromEntries(new FormData(event.currentTarget));
+      const form = event.currentTarget;
+      const values = Object.fromEntries(new FormData(form));
       const expireDate = rocDateToAdDate(values.rocYear, values.rocMonth, values.rocDay);
       if (!expireDate) return showAlert('請輸入有效的民國年月日。');
       if (state.data.some(item => normalizeCode(item.code) === normalizeCode(values.code))) return showAlert('此滅火器編號已存在。');
@@ -256,13 +275,47 @@
       try {
         const result = await api('addFireExtinguisherData', payload);
         if (!result?.ok) throw new Error(result?.msg || '新增失敗');
-        event.currentTarget.reset();
+        form.reset();
         await refresh();
         showAlert('已新增滅火器。', '完成');
       } catch (error) {
         showAlert(error.message || '新增失敗', '錯誤');
       }
     };
+    $('edit-button').onclick = () => {
+      const item = state.selected;
+      if (!item) return;
+      const form = $('edit-form');
+      const rocDate = adDateToRocDate(item.expireDate);
+      form.elements.code.value = item.code || '';
+      form.elements.floor.value = item.floor || '1F';
+      form.elements.location.value = item.location || '';
+      form.elements.rocYear.value = rocDate.year || '';
+      form.elements.rocMonth.value = rocDate.month || '';
+      form.elements.rocDay.value = rocDate.day || '';
+      form.elements.pressure.value = item.pressure || '正常';
+      closeModal('detail-modal');
+      openModal('edit-modal');
+    };
+    $('edit-form').onsubmit = async event => {
+      event.preventDefault();
+      const item = state.selected;
+      const values = Object.fromEntries(new FormData(event.currentTarget));
+      const expireDate = rocDateToAdDate(values.rocYear, values.rocMonth, values.rocDay);
+      if (!expireDate) return showAlert('請輸入有效的民國年月日。');
+      const payload = { mode: 'full', rowIndex: item.rowIndex, code: values.code.trim(), floor: values.floor, location: values.location.trim(), expireDate, pressure: values.pressure, lastCheckDate: today(), lastChecker: state.user.name };
+      try {
+        const result = await api('updateFireExtinguisherData', payload);
+        if (!result?.ok) throw new Error(result?.msg || '更新失敗');
+        Object.assign(item, payload);
+        closeModal('edit-modal');
+        render();
+        showAlert('資料已更新。', '完成');
+      } catch (error) {
+        showAlert(error.message || '更新失敗', '錯誤');
+      }
+    };
+    $('reader').addEventListener('click', refocusCamera);
     $('scan-button').onclick = startBarcodeScanner;
   </script>
 </body>
