@@ -369,14 +369,25 @@
       const item = state.selected;
       if (!item) return;
       const form = $('edit-form');
-      const rocDate = adDateToRocDate(item.expireDate);
+      
+      // 安全地處理到期日轉換，避免格式異常導致崩潰
+      let rocDate = { year: '', month: '', day: '' };
+      try {
+        if (item.expireDate) {
+          rocDate = adDateToRocDate(item.expireDate);
+        }
+      } catch (e) {
+        console.warn('到期日轉換民國年失敗:', e);
+      }
+
       form.elements.code.value = item.code || '';
       form.elements.floor.value = item.floor || '1F';
       form.elements.location.value = item.location || '';
-      form.elements.rocYear.value = rocDate.year || '';
-      form.elements.rocMonth.value = rocDate.month || '';
-      form.elements.rocDay.value = rocDate.day || '';
+      form.elements.rocYear.value = rocDate?.year || '';
+      form.elements.rocMonth.value = rocDate?.month || '';
+      form.elements.rocDay.value = rocDate?.day || '';
       form.elements.pressure.value = item.pressure || '正常';
+      
       closeModal('detail-modal');
       openModal('edit-modal');
     };
