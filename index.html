@@ -161,9 +161,7 @@
   </div>
 
   <div id="v-scan" class="card hidden">
-    <button class="btn-success" style="margin-bottom: 12px; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;" onclick="()">
-      📷 掃描條碼檢查滅火器
-    </button>
+   <button class="btn-success" style="..." onclick="startScanner()">📷 掃描條碼檢查滅火器</button>
 
     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid var(--primary); padding-bottom: 5px;">
       <h4 style="color: var(--primary-dark); margin:0;">本月待檢查清單</h4>
@@ -623,11 +621,6 @@ function createExtListItemHtml(d) {
       return `${adYear}/${mm}/${dd}`;
     }
 
-    function parseFloorNum(floorStr) {
-      if (!floorStr) return 0;
-      const match = floorStr.match(/\d+/);
-      return match ? parseInt(match[0], 10) : 0;
-    }
 
     function getYearMonthString(dateStr) {
       if (!dateStr) return "";
@@ -825,49 +818,6 @@ function createExtListItemHtml(d) {
         </div>
       `).join('');
     }
-
-    function renderList() {
-      const sortVal = document.getElementById("filter-sort").value;
-      const statusVal = document.getElementById("filter-status").value;
-      
-      let filtered = [...allData];
-
-      if (statusVal === "done") {
-        filtered = filtered.filter(d => getYearMonthString(d.lastCheckDate) === currentMonthStr);
-      } else if (statusVal === "undone") {
-        filtered = filtered.filter(d => getYearMonthString(d.lastCheckDate) !== currentMonthStr);
-      }
-
-      if (sortVal === "new_old") {
-        filtered.sort((a, b) => new Date(b.expireDate || '1970') - new Date(a.expireDate || '1970'));
-      } else if (sortVal === "old_new") {
-        filtered.sort((a, b) => new Date(a.expireDate || '1970') - new Date(b.expireDate || '1970'));
-      }
-
-      const container = document.getElementById("all-data-list");
-      if (filtered.length === 0) {
-        container.innerHTML = `<p style="text-align:center; color:#888;">無符合條件的資料</p>`;
-        return;
-      }
-
-      container.innerHTML = filtered.map(d => {
-        const isDone = getYearMonthString(d.lastCheckDate) === currentMonthStr;
-        return `
-        <div class="list-item" style="flex-direction:column; align-items:flex-start;">
-          <div style="width:100%; display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-            <strong>${d.code} (${d.floor})</strong>
-            <span class="list-badge ${isDone ? 'bg-green' : 'bg-red'}">${isDone ? '已檢查' : '未檢查'}</span>
-          </div>
-          <div style="font-size:14px; color:#555;">位置：${d.location}</div>
-          <div style="font-size:14px; color:#555;">到期：${d.expireDate}</div>
-          <div style="font-size:14px; color:#555;">最後檢查日：${d.lastCheckDate || '無紀錄'}</div>
-          <div style="width:100%; display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
-            <button class="btn-outline btn-sm" onclick="handleDirectModifyByRow(${d.rowIndex})">修改資料</button>
-          </div>
-        </div>`;
-      }).join('');
-    }
-
     function handleManualCheckByRow(rowIndex) {
       const foundExt = allData.find(d => Number(d.rowIndex) === Number(rowIndex));
       if (foundExt) {
@@ -1005,27 +955,33 @@ function createExtListItemHtml(d) {
     }
 
     function submitAdd() {
-      const code = document.getElementById("add-id").value.trim();
-      const floor = document.getElementById("add-floor").value;
-      const location = document.getElementById("add-location").value.trim();
-      const y = document.getElementById("add-year").value.trim();
-      const m = document.getElementById("add-month").value.trim();
-      const d = document.getElementById("add-day").value.trim();
+  const code = document.getElementById("add-id").value.trim();
+  const floor = document.getElementById("add-floor").value;
+  const location = document.getElementById("add-location").value.trim();
+  const y = document.getElementById("add-year").value.trim();
+  const m = document.getElementById("add-month").value.trim();
+  const d = document.getElementById("add-day").value.trim();
 
-      if (!code || !floor || !location || !y || !m || !d) {
-        return showAlert("提示", "新增滅火器所有欄位皆為必填！");
-      }
+  if (!code || !floor || !location || !y || !m || !d) {
+    return showAlert("提示", "新增滅火器所有欄位皆為必填！");
+  }
 
-      const isDuplicate = allData.some(item => item.code === code);
-      if (isDuplicate) {
-        return showAlert("提示", "已有該編號");
-      }
+  const isDuplicate = allData.some(item => item.code === code);
+  if (isDuplicate) {
+    return showAlert("提示", "已有該編號");
+  }
 
-      const adExpireDate = parseInputDateToAd(y, m, d, isAddRoc);
-      const todayStr = `${currentYear}/${currentMonth}/${String(now.getDate()).padStart(2, '0')}`;
+  const adExpireDate = parseInputDateToAd(y, m, d, isAddRoc);
+  const todayStr = `${currentYear}/${currentMonth}/${String(now.getDate()).padStart(2, '0')}`;
 
+  // 使用確認彈窗詢問是否新增
+  showConfirmModal(
+    "確認新增", 
+    `確定要新增以下滅火器嗎？\n\n編號：${code}\n樓層：${floor}\n位置：${location}\n到期日：${adExpireDate}`, 
+    function() {
       showAlert("新增成功", `設備 ${code} 已加入清單！`);
-      
+
+      // 清空輸入框
       document.getElementById("add-id").value = "";
       document.getElementById("add-floor").value = "";
       document.getElementById("add-location").value = "";
@@ -1041,6 +997,8 @@ function createExtListItemHtml(d) {
         if (res && res.ok) fetchAllData(false);
       });
     }
+  );
+}
   </script>
 </body>
 </html>
