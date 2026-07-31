@@ -52,12 +52,12 @@
     const state = { user:null, data:[], selected:null, scanner:null };
     const $ = id => document.getElementById(id);
     const today = () => {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}/${m}/${day}`;
-};
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}/${m}/${day}`;
+    };
     const month = () => today().slice(0,7);
     const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
     const normalizeDate = value => String(value || '').replace(/\//g, '-').slice(0,10);
@@ -68,13 +68,57 @@
     function api(action, payload) { return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,payload})}).then(r=>r.json()); }
     function floorValue(value) { const v=String(value||''); const n=Number((v.match(/\d+/)||['999'])[0]); return /b/i.test(v) ? -n : n; }
     function setView(id) { document.querySelectorAll('.panel').forEach(x=>x.classList.toggle('active',x.id===id)); document.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===id)); if(id==='list') renderAll(); if(id==='scan') renderPending(); }
-    function itemMarkup(item, actions=true) { const isDone=checkedThisMonth(item), pressure=String(item.pressure||'正常'); const pressureClass=pressure==='正常'?'ok':'abnormal'; return `<div class="list-item"><div class="details"><strong>${escapeHtml(item.floor)} · ${escapeHtml(item.location)}</strong><div class="muted">編號：${escapeHtml(item.code)}　到期日：${escapeHtml(item.expireDate || '-')}</div><div class="muted">上次巡檢：${escapeHtml(item.lastCheckDate || '尚未巡檢')} ${item.lastChecker ? `(${escapeHtml(item.lastChecker)})` : ''}</div><span class="badge ${isDone?'ok':'pending'}">${isDone?'本月已巡檢':'本月未巡檢'}</span><span class="badge ${pressureClass}">壓力${escapeHtml(pressure)}</span></div>${actions?`<div class="actions"><button data-detail="${item.rowIndex}">查看</button></div>`:''}</div>`; }
+    function itemMarkup(item, actions=true) { const isDone=checkedThisMonth(item), pressure=String(item.pressure||'正常'); const pressureClass=pressure==='正常'?'ok':'abnormal'; return `<div class="list-item"><div class="details"><strong>${escapeHtml(item.floor)} · ${escapeHtml(item.location)}</strong><div class="muted">編號：${escapeHtml(item.code)} 到期日：${escapeHtml(item.expireDate || '-')}</div><div class="muted">上次巡檢：${escapeHtml(item.lastCheckDate || '尚未巡檢')} ${item.lastChecker ? `(${escapeHtml(item.lastChecker)})` : ''}</div><span class="badge ${isDone?'ok':'pending'}">${isDone?'本月已巡檢':'本月未巡檢'}</span><span class="badge ${pressureClass}">壓力${escapeHtml(pressure)}</span></div>${actions?`<div class="actions"><button data-detail="${item.rowIndex}">查看</button></div>`:''}</div>`; }
     function renderPending() { const direction=$('pending-sort').value; const items=state.data.filter(x=>!checkedThisMonth(x)).sort((a,b)=>(floorValue(a.floor)-floorValue(b.floor))*(direction==='high'?-1:1)); $('pending-list').innerHTML=items.length?items.map(x=>itemMarkup(x)).join(''):'<p class="empty">本月所有滅火器皆已巡檢。</p>'; }
     function renderAll() { let items=[...state.data]; const status=$('list-status').value, sort=$('list-sort').value; if(status==='done')items=items.filter(checkedThisMonth); if(status==='pending')items=items.filter(x=>!checkedThisMonth(x)); items.sort((a,b)=>sort==='floor'?floorValue(a.floor)-floorValue(b.floor):(normalizeDate(a.expireDate).localeCompare(normalizeDate(b.expireDate))*(sort==='new'?-1:1))); if(!items.length) { $('all-list').innerHTML='<p class="empty">沒有符合條件的資料。</p>'; return; } if(sort!=='floor') { $('all-list').innerHTML=items.map(x=>itemMarkup(x)).join(''); return; } const groups=new Map(); items.forEach(item=>{const floor=String(item.floor||'未設定'); if(!groups.has(floor))groups.set(floor,[]); groups.get(floor).push(item);}); $('all-list').innerHTML=[...groups.entries()].map(([floor,group])=>`<section class="floor-group"><div class="floor-heading"><span>${escapeHtml(floor)}</span><span class="floor-count">${group.length} 支</span></div>${group.map(x=>itemMarkup(x)).join('')}</section>`).join(''); }
     function render() { renderPending(); renderAll(); }
     async function refresh(background=false) { if(background)$('sync-status').textContent='正在載入所有滅火器編號…'; $('scan-button').disabled=true; try { const res=await api('getAllFireExtinguishers',null); if(!res?.ok)throw new Error(res?.msg||'無法取得資料'); state.data=Array.isArray(res.data)?res.data:[]; localStorage.setItem('fireExt_allData',JSON.stringify(state.data)); render(); if(background)$('sync-status').textContent=`已載入 ${state.data.length} 支滅火器，可開始掃描`; } catch(error) { console.error(error); if(!state.data.length)state.data=JSON.parse(localStorage.getItem('fireExt_allData')||'[]'); render(); if(background)$('sync-status').textContent=state.data.length?'同步失敗，使用已儲存資料':'載入資料失敗，暫時無法掃描'; } finally { const ready=state.data.length>0; $('scan-button').disabled=!ready; $('scan-button').textContent=ready?'開啟條碼／QR Code 掃描器':'載入滅火器資料後即可掃描'; } }
     function showDetail(rowIndex) { state.selected=state.data.find(x=>String(x.rowIndex)===String(rowIndex)); if(!state.selected)return; const x=state.selected; $('detail-content').innerHTML=`<p><b>編號：</b>${escapeHtml(x.code)}</p><p><b>樓層：</b>${escapeHtml(x.floor)}</p><p><b>位置：</b>${escapeHtml(x.location)}</p><p><b>到期日：</b>${escapeHtml(x.expireDate)}</p><p><b>壓力：</b>${escapeHtml(x.pressure||'正常')}</p><p><b>上次巡檢：</b>${escapeHtml(x.lastCheckDate||'尚未巡檢')}</p>`; openModal('detail-modal'); }
-    async function saveCheck(pressure) { if(!state.selected||!state.user)return; const item=state.selected; const payload={mode:'check',rowIndex:item.rowIndex,pressure,lastCheckDate:today(),lastChecker:state.user.name}; try { const res=await api('updateFireExtinguisherData',payload); if(!res?.ok)throw new Error(res?.msg); Object.assign(item,payload); closeModal('detail-modal'); render(); showAlert('巡檢紀錄已儲存。','完成'); } catch(error) { showAlert(error.message||'儲存巡檢結果失敗','錯誤'); } }
+    
+    // 【修改重點】樂觀更新：立即變更記憶體、儲存到手機快取、移除本月未巡檢、並於背景執行上傳
+    function saveCheck(pressure) {
+      if (!state.selected || !state.user) return;
+      const item = state.selected;
+      
+      const backup = {
+        pressure: item.pressure,
+        lastCheckDate: item.lastCheckDate,
+        lastChecker: item.lastChecker
+      };
+
+      const payload = {
+        mode: 'check',
+        rowIndex: item.rowIndex,
+        pressure,
+        lastCheckDate: today(),
+        lastChecker: state.user.name
+      };
+
+      // 1. 立即更新本地 state 與 localStorage 快取
+      Object.assign(item, payload);
+      localStorage.setItem('fireExt_allData', JSON.stringify(state.data));
+
+      // 2. 立即關閉彈窗並重新渲染（該項目將即刻從「本月未巡檢」清單中移除）
+      closeModal('detail-modal');
+      render();
+      showAlert('更新成功，正在背景同步…', '成功');
+
+      // 3. 背景執行 API 同步
+      api('updateFireExtinguisherData', payload)
+        .then(res => {
+          if (!res?.ok) throw new Error(res?.msg || '同步失敗');
+          localStorage.setItem('fireExt_allData', JSON.stringify(state.data));
+        })
+        .catch(error => {
+          console.error('巡檢背景更新失敗:', error);
+          // 若後端發生異常，自動還原至先前的狀態與 cache，並重新渲染
+          Object.assign(item, backup);
+          localStorage.setItem('fireExt_allData', JSON.stringify(state.data));
+          render();
+          showAlert(`編號「${item.code}」同步失敗，已回覆未巡檢狀態：${error.message || '網路異常'}`, '錯誤');
+        });
+    }
+
     async function startScanner() { if(!state.data.length)return showAlert('滅火器資料尚未載入完成，請稍候再試。'); if(!window.Html5Qrcode){showAlert('掃描元件載入失敗，請確認網路連線。','錯誤');return;} openModal('scanner-modal'); $('scan-status').textContent='正在啟動相機…'; try { state.scanner ||= new Html5Qrcode('reader'); const formats=window.Html5QrcodeSupportedFormats; const supported=[formats?.CODE_128,formats?.CODE_39,formats?.CODE_93,formats?.CODE_39_VIN,formats?.EAN_13,formats?.EAN_8,formats?.UPC_A,formats?.UPC_E,formats?.ITF,formats?.QR_CODE].filter(Number.isInteger); await state.scanner.start({facingMode:'environment'},{fps:10,qrbox:{width:300,height:120},aspectRatio:2.5,disableFlip:true,formatsToSupport:supported},text=>{ const scannedCode=normalizeCode(text); stopScanner(); const item=state.data.find(x=>normalizeCode(x.code)===scannedCode); item?showDetail(item.rowIndex):showAlert(`已讀取條碼「${text}」，但資料表中找不到相同的滅火器編號。`); }); $('scan-status').textContent='請將橫向條碼完整置於掃描框內'; } catch(error) { console.error(error); stopScanner(); showAlert('無法啟動相機。請允許相機權限，並以 HTTPS 網址開啟頁面。','相機錯誤'); } }
     async function stopScanner() { try { if(state.scanner?.isScanning)await state.scanner.stop(); } catch(error) { console.warn(error); } closeModal('scanner-modal'); }
     $('login-button').onclick=async()=>{ const id=$('login-id').value.trim(); if(!id)return showAlert('請輸入員工編號。'); $('login-button').disabled=true; try { const res=await api('checkLoginById',id); if(!res?.ok)throw new Error(res?.msg||'登入失敗'); state.user=res; localStorage.setItem('fireExt_currentUser',JSON.stringify(res)); $('user-name').textContent=res.name; $('user-id').textContent=res.id; $('login').classList.remove('active'); $('tabs').classList.remove('hidden'); setView('scan'); await refresh(true); } catch(error) { showAlert(error.message||'登入失敗','錯誤'); } finally { $('login-button').disabled=false; } };
@@ -87,8 +131,8 @@
   </script>
   <div id="barcode-not-found-modal" class="modal"><div class="dialog"><h2>找不到滅火器</h2><p id="barcode-not-found-message"></p><p class="muted">是否要以此條碼編號新增滅火器？</p><div class="row"><button id="add-scanned-ext">新增滅火器</button><button id="cancel-scanned-ext" type="button" class="secondary">取消</button></div></div></div>
   <div id="swap-modal" class="modal"><div class="dialog"><h2>更換滅火器位置</h2><p id="swap-current" class="muted"></p><label for="swap-target">選擇要交換的滅火器編號</label><select id="swap-target"></select><p class="muted">只會交換兩台滅火器的樓層與位置；編號、日期、壓力與巡檢紀錄不會變更。</p><div class="row"><button id="confirm-swap">確認交換</button><button id="cancel-swap" type="button" class="secondary">取消</button></div></div></div>
+  <div id="swap-confirm-modal" class="modal"><div class="dialog"><h2>確認更換位置</h2><p id="swap-confirm-message"></p><p class="muted">兩台滅火器的樓層與位置將互換。</p><div class="row"><button id="commit-swap">確認更換</button><button id="cancel-confirm-swap" type="button" class="secondary">取消</button></div></div></div>
   <script>
-    // 一維條碼處理與位置交換功能：覆寫原本偏 QR Code 的掃描按鈕行為。
     let pendingScannedCode = '';
     function openAddForScannedCode(code) {
       setView('account');
@@ -280,15 +324,26 @@
       state.pendingAddCodes ||= new Set();
       if (state.data.some(item => normalizeCode(item.code) === codeKey) || state.pendingAddCodes.has(codeKey)) return showAlert('此滅火器編號已存在或正在新增中。');
       const payload = { code: values.code.trim(), floor: values.floor, location: values.location.trim(), expireDate, pressure: '正常', lastCheckDate: today(), lastChecker: state.user.name };
+      const localRowIndex = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const localItem = { ...payload, rowIndex: localRowIndex };
       state.pendingAddCodes.add(codeKey);
+      state.data.push(localItem);
+      localStorage.setItem('fireExt_allData', JSON.stringify(state.data));
+      render();
       form.reset();
       form.elements.code.focus();
+      showAlert('滅火器已新增，資料正在背景同步。', '成功');
       api('addFireExtinguisherData', payload)
         .then(result => {
           if (!result?.ok) throw new Error(result?.msg || '新增失敗');
           return refresh();
         })
-        .catch(error => showAlert(`編號「${payload.code}」${error.message || '新增失敗'}`, '錯誤'))
+        .catch(error => {
+          state.data = state.data.filter(item => item.rowIndex !== localRowIndex);
+          localStorage.setItem('fireExt_allData', JSON.stringify(state.data));
+          render();
+          showAlert(`編號「${payload.code}」${error.message || '新增失敗'}`, '錯誤');
+        })
         .finally(() => state.pendingAddCodes.delete(codeKey));
     };
     $('edit-button').onclick = () => {
