@@ -26,7 +26,7 @@
     .floor-group { margin-top:14px; }.floor-group:first-child { margin-top:0; }.floor-heading { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; color:white; background:var(--primary-dark); border-radius:9px; font-size:.95rem; font-weight:750; }.floor-count { padding:2px 8px; border-radius:99px; background:#ffffff2e; font-size:.82rem; }
     .toolbar { display:flex; gap:10px; align-items:center; }.toolbar select { max-width:170px; }.toolbar h2 { flex:1; margin:0; }.empty { margin:0; padding:20px; color:#66736b; text-align:center; }.notice { min-height:20px; color:#66736b; text-align:center; font-size:.85rem; } #sync-status { display:none; } #list .toolbar { flex-wrap:nowrap; } #list .toolbar select { flex:1; min-width:0; max-width:none; }
     .modal { display:none; position:fixed; inset:0; z-index:20; padding:16px; background:#0008; align-items:center; justify-content:center; }.modal.open { display:flex; }.dialog { width:min(100%,480px); max-height:90vh; overflow:auto; padding:20px; background:white; border-radius:16px; box-shadow:0 8px 32px #0005; }.dialog h2 { margin-bottom:10px; }.dialog .row:last-child { margin-top:16px; }.dialog .row button { flex:1; }
-    #reader { overflow:hidden; min-height:250px; border-radius:10px; background:#111; }.scanner-note { margin:8px 0 0; color:#56645b; text-align:center; font-size:.85rem; }
+    #reader { overflow:hidden; min-height:250px; border-radius:10px; background:#111; }.scanner-note { margin:8px 0 0; color:#56645b; text-align:center; font-size:.85rem; }.zoom-control { display:none; margin-top:12px; }.zoom-control.visible { display:block; }.zoom-control label { display:flex; justify-content:space-between; margin:0 0 5px; }.zoom-control input { accent-color:var(--primary-dark); padding:0; }
     .hidden { display:none!important; } @media (max-width:440px) { .list-item { flex-direction:column; }.actions { justify-content:flex-end; }.toolbar { align-items:flex-start; flex-wrap:wrap; }.toolbar h2 { flex-basis:100%; } #list .toolbar { flex-wrap:nowrap; } }
   </style>
 </head>
@@ -40,7 +40,7 @@
       <section id="login" class="panel active"><div class="card"><h2>巡檢人員登入</h2><label for="login-id">員工編號</label><input id="login-id" autocomplete="username" placeholder="請輸入員工編號"><button id="login-button" style="width:100%;margin-top:12px">登入</button></div></section>
       <section id="scan" class="panel"><div class="card"><button id="scan-button" disabled style="width:100%">載入滅火器資料後即可掃描</button></div><div class="card"><div class="toolbar"><h2>本月未巡檢</h2><select id="pending-sort"><option value="high">樓層：高至低</option><option value="low">樓層：低至高</option></select></div><p id="sync-status" class="notice"></p><div id="pending-list"></div></div></section>
       <section id="list" class="panel"><div class="card"><div class="toolbar"><select id="list-sort"><option value="floor">依樓層</option><option value="new">到期日：新至舊</option><option value="old">到期日：舊至新</option></select><select id="list-status"><option value="all">全部狀態</option><option value="done">本月已巡檢</option><option value="pending">本月未巡檢</option></select></div><div id="all-list"></div></div></section>
-      <section id="account" class="panel"><div class="card"><h2>帳號資訊</h2><p>姓名：<span id="user-name">-</span></p><p>員工編號：<span id="user-id">-</span></p><button id="logout" class="secondary" style="width:100%">登出</button></div><div class="card"><h2>新增滅火器</h2><form id="add-form"><label>編號</label><input name="code" required placeholder="例如 EXT-001"><label>樓層</label><input name="floor" required placeholder="例如 3F 或 B1"><label>位置</label><input name="location" required placeholder="例如 電梯口"><label>到期日</label><input name="expireDate" type="date" required><button style="width:100%;margin-top:14px">新增</button></form></div></section>
+      <section id="account" class="panel"><div class="card"><h2>帳號資訊</h2><p>姓名：<span id="user-name">-</span></p><p>員工編號：<span id="user-id">-</span></p><button id="logout" class="secondary" style="width:100%">登出</button></div><div class="card"><h2>新增滅火器</h2><form id="add-form"><label>編號</label><input name="code" required placeholder="例如 EXT-001"><label>樓層</label><select name="floor" required><option value="">請選擇樓層</option><option value="1F">1F</option><option value="2F">2F</option><option value="3F">3F</option><option value="4F">4F</option><option value="5F">5F</option><option value="6F">6F</option><option value="7F">7F</option><option value="8F">8F</option><option value="9F">9F</option></select><label>位置</label><input name="location" required placeholder="例如 電梯口"><label>到期日（民國年）</label><div class="row compact"><input name="rocYear" type="number" inputmode="numeric" min="1" required placeholder="115"><span>年</span><input name="rocMonth" type="number" inputmode="numeric" min="1" max="12" required placeholder="7"><span>月</span><input name="rocDay" type="number" inputmode="numeric" min="1" max="31" required placeholder="11"><span>日</span></div><button style="width:100%;margin-top:14px">新增</button></form></div></section>
     </main>
   </div>
   <div id="scanner-modal" class="modal"><div class="dialog"><h2>掃描滅火器條碼</h2><div id="reader"></div><p id="scan-status" class="scanner-note">正在啟動相機…</p><button id="stop-scan" class="secondary" style="width:100%;margin-top:12px">關閉掃描器</button></div></div>
@@ -79,9 +79,11 @@
     $('logout').onclick=()=>{state.user=null;state.data=[];localStorage.removeItem('fireExt_currentUser');$('tabs').classList.add('hidden');setView('login');};
     $('clock').textContent = '滅火器巡檢系統';
   </script>
+  <div id="barcode-not-found-modal" class="modal"><div class="dialog"><h2>找不到滅火器</h2><p id="barcode-not-found-message"></p><p class="muted">是否要以此條碼編號新增滅火器？</p><div class="row"><button id="add-scanned-ext">新增滅火器</button><button id="cancel-scanned-ext" type="button" class="secondary">取消</button></div></div></div>
   <div id="swap-modal" class="modal"><div class="dialog"><h2>更換滅火器位置</h2><p id="swap-current" class="muted"></p><label for="swap-target">選擇要交換的滅火器編號</label><select id="swap-target"></select><p class="muted">只會交換兩台滅火器的樓層與位置；編號、日期、壓力與巡檢紀錄不會變更。</p><div class="row"><button id="confirm-swap">確認交換</button><button id="cancel-swap" type="button" class="secondary">取消</button></div></div></div>
   <script>
     // 一維條碼處理與位置交換功能：覆寫原本偏 QR Code 的掃描按鈕行為。
+    let pendingScannedCode = '';
     function openAddForScannedCode(code) {
       setView('account');
       const form = $('add-form');
@@ -89,6 +91,46 @@
       form.elements.code.value = code;
       form.scrollIntoView({ behavior: 'smooth', block: 'start' });
       form.elements.floor.focus();
+    }
+
+    function showBarcodeNotFoundModal(code) {
+      pendingScannedCode = code;
+      $('barcode-not-found-message').textContent = `條碼「${code}」沒有對應的滅火器資料。`;
+      openModal('barcode-not-found-modal');
+    }
+
+    function rocDateToAdDate(year, monthValue, day) {
+      const adYear = Number(year) + 1911;
+      const date = new Date(Date.UTC(adYear, Number(monthValue) - 1, Number(day)));
+      if (!Number.isInteger(Number(year)) || Number(year) < 1 || date.getUTCFullYear() !== adYear || date.getUTCMonth() !== Number(monthValue) - 1 || date.getUTCDate() !== Number(day)) return null;
+      return `${adYear}-${String(monthValue).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+
+    function activeCameraTrack() {
+      return $('reader').querySelector('video')?.srcObject?.getVideoTracks?.()[0] || null;
+    }
+
+    async function configureCameraZoom() {
+      const control = $('zoom-control');
+      const slider = $('zoom-slider');
+      const track = activeCameraTrack();
+      const capabilities = track?.getCapabilities?.();
+      if (!track || !capabilities?.zoom) { control.classList.remove('visible'); return; }
+      slider.min = capabilities.zoom.min;
+      slider.max = capabilities.zoom.max;
+      slider.step = capabilities.zoom.step || 0.1;
+      slider.value = track.getSettings?.().zoom || capabilities.zoom.min;
+      control.classList.add('visible');
+      try {
+        if (capabilities.focusMode?.includes('continuous')) await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+      } catch (error) { console.debug('連續對焦不受此相機支援', error); }
+    }
+
+    async function applyCameraZoom() {
+      const track = activeCameraTrack();
+      if (!track) return;
+      try { await track.applyConstraints({ advanced: [{ zoom: Number($('zoom-slider').value) }] }); }
+      catch (error) { console.debug('縮放設定失敗', error); }
     }
 
     async function startBarcodeScanner() {
@@ -100,24 +142,32 @@
       try {
         state.scanner ||= new Html5Qrcode('reader');
         const formats = window.Html5QrcodeSupportedFormats;
-        const supported = [formats?.CODE_128, formats?.CODE_39, formats?.CODE_93, formats?.EAN_13, formats?.EAN_8, formats?.UPC_A, formats?.UPC_E, formats?.ITF, formats?.QR_CODE].filter(Number.isInteger);
+        const supported = Number.isInteger(formats?.CODE_128) ? [formats.CODE_128] : undefined;
+        const scannerConfig = {
+          fps: 30,
+          qrbox: (width, height) => ({ width: Math.floor(Math.min(width * 0.92, 380)), height: Math.floor(Math.min(135, Math.max(90, height * 0.30)))}),
+          disableFlip: true
+        };
+        if (supported) scannerConfig.formatsToSupport = supported;
         await state.scanner.start(
-          { facingMode: 'environment' },
-          { fps: 10, qrbox: { width: 300, height: 120 }, aspectRatio: 2.5, disableFlip: true, formatsToSupport: supported },
+          { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+          scannerConfig,
           async text => {
             if (state.scanBusy) return;
             state.scanBusy = true;
+            $('zoom-control').classList.remove('visible');
             await stopScanner();
             const item = state.data.find(entry => normalizeCode(entry.code) === normalizeCode(text));
             if (item) {
               showDetail(item.rowIndex);
-            } else if (window.confirm(`找不到條碼「${text}」對應的滅火器。\n\n要以此編號新增滅火器嗎？`)) {
-              openAddForScannedCode(text.trim());
+            } else {
+              showBarcodeNotFoundModal(text.trim());
             }
             state.scanBusy = false;
           }
         );
-        $('scan-status').textContent = '請將橫向條碼完整置於掃描框內';
+        await configureCameraZoom();
+        $('scan-status').textContent = '請將橫向條碼完整置於掃描框內，可用下方滑桿縮放';
       } catch (error) {
         console.error(error);
         await stopScanner();
@@ -162,12 +212,39 @@
       }
     }
 
+    const zoomControl = document.createElement('div');
+    zoomControl.id = 'zoom-control'; zoomControl.className = 'zoom-control';
+    zoomControl.innerHTML = '<label for="zoom-slider"><span>相機縮放</span><span>向右滑可拉近條碼</span></label><input id="zoom-slider" type="range" aria-label="相機縮放">';
+    $('scanner-modal').querySelector('.dialog').insertBefore(zoomControl, $('scan-status'));
+    $('zoom-slider').addEventListener('input', applyCameraZoom);
+    $('stop-scan').addEventListener('click', () => $('zoom-control').classList.remove('visible'));
+
     const swapButton = document.createElement('button');
-    swapButton.type = 'button'; swapButton.id = 'swap-button'; swapButton.className = 'outline'; swapButton.textContent = '換位置';
-    $('edit-form').append(swapButton);
+    swapButton.type = 'button'; swapButton.id = 'swap-button'; swapButton.textContent = '換位置';
+    swapButton.style.width = '100%'; swapButton.style.marginTop = '14px';
+    $('edit-form').insertBefore(swapButton, $('edit-form').querySelector('.row'));
     swapButton.addEventListener('click', openSwapModal);
     $('confirm-swap').addEventListener('click', swapLocations);
     $('cancel-swap').addEventListener('click', () => closeModal('swap-modal'));
+    $('add-scanned-ext').addEventListener('click', () => { closeModal('barcode-not-found-modal'); openAddForScannedCode(pendingScannedCode); });
+    $('cancel-scanned-ext').addEventListener('click', () => closeModal('barcode-not-found-modal'));
+    $('add-form').onsubmit = async event => {
+      event.preventDefault();
+      const values = Object.fromEntries(new FormData(event.currentTarget));
+      const expireDate = rocDateToAdDate(values.rocYear, values.rocMonth, values.rocDay);
+      if (!expireDate) return showAlert('請輸入有效的民國年月日。');
+      if (state.data.some(item => normalizeCode(item.code) === normalizeCode(values.code))) return showAlert('此滅火器編號已存在。');
+      const payload = { code: values.code.trim(), floor: values.floor, location: values.location.trim(), expireDate, pressure: '正常', lastCheckDate: today(), lastChecker: state.user.name };
+      try {
+        const result = await api('addFireExtinguisherData', payload);
+        if (!result?.ok) throw new Error(result?.msg || '新增失敗');
+        event.currentTarget.reset();
+        await refresh();
+        showAlert('已新增滅火器。', '完成');
+      } catch (error) {
+        showAlert(error.message || '新增失敗', '錯誤');
+      }
+    };
     $('scan-button').onclick = startBarcodeScanner;
   </script>
 </body>
