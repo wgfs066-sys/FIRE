@@ -255,7 +255,7 @@
       <input type="range" id="camera-zoom-slider" min="1" max="3" step="0.1" value="1" style="width: 100%; accent-color: var(--primary-dark); cursor: pointer;">
     </div>
 
-    <button class="btn-danger" onclick="closeScanner()">關閉相機</button>
+    <button class="btn-danger" onclick="closeScannerModal()">關閉相機</button>
   </div>
 </div>
 
@@ -378,8 +378,30 @@
       });
     }
 
-/* 針對扁平弧形一維條碼優化的相機配置 */
-    /* 1. 相機配置優化：取景框縮至橫向扁平黃金比例 (寬260, 高80) */
+// --- 1. 修正：關閉相機視窗（優先關閉 UI，背景釋放鏡頭硬體）---
+function closeScannerModal() {
+  // 第一時間立即關閉彈窗
+  closeModal("modal-scanner");
+
+  // 背景安全釋放相機資源
+  if (html5QrcodeScanner) {
+    try {
+      if (html5QrcodeScanner.isScanning) {
+        html5QrcodeScanner.stop().then(() => {
+          html5QrcodeScanner.clear();
+        }).catch(err => {
+          console.warn("鏡頭停止提示:", err);
+        });
+      } else {
+        html5QrcodeScanner.clear();
+      }
+    } catch (e) {
+      console.warn("相機關閉例外，已忽略:", e);
+    }
+  }
+}
+
+// --- 2. 開啟相機（扁平取景框 width:260, height:80，並初始化變焦滑軌）---
 function openScanner() {
   showModal("modal-scanner");
   if (!html5QrcodeScanner) {
@@ -391,7 +413,6 @@ function openScanner() {
     Html5QrcodeSupportedFormats.CODE_39
   ] : undefined;
 
-  // 修正：長方形扁平取景框，改善過長問題
   const config = {
     fps: 30,
     qrbox: { width: 260, height: 80 },
@@ -406,23 +427,20 @@ function openScanner() {
     }
   };
 
-  const cameraConfig = { facingMode: "environment" };
-
   html5QrcodeScanner.start(
-    cameraConfig,
+    { facingMode: "environment" },
     config,
     onScanSuccess,
     onScanFailure
   ).then(() => {
-    // 成功啟動相機後，綁定滑軌變焦事件
     initCameraZoomControl();
   }).catch(err => {
-    showAlert("相機開啟失敗", "請確認是否已給予網頁相機權限：" + err);
-    closeScanner();
+    showAlert("相機開啟失敗", "請確認是否已授權相機權限：" + err);
+    closeScannerModal();
   });
 }
 
-/* 2. 相機鏡頭滑軌焦距控制 (1.0x ~ 3.0x) */
+// --- 3. 鏡頭焦距縮放控制 ---
 function initCameraZoomControl() {
   const slider = document.getElementById("camera-zoom-slider");
   const label = document.getElementById("zoom-value-label");
@@ -441,63 +459,77 @@ function initCameraZoomControl() {
           advanced: [{ zoom: zoomVal }]
         });
       } catch (e) {
-        console.warn("目前裝置相機不支援硬體縮放，維持預設焦距", e);
+        console.warn("不支援硬體縮放", e);
       }
     }
   };
 }
 
-/* 3. 掃描成功處理：即時顯示「讀取中」提示與極速記憶體查詢 */
+// --- 4. 掃描成功處理（即時顯示已讀取條碼提示與比對）---
 function onScanSuccess(decodedText) {
-  // 觸發手機震動 (若瀏覽器支援)
   if (navigator.vibrate) navigator.vibrate(80);
 
   const scannedCode = String(decodedText).trim();
 
-  // 讓人員第一時間看到已掃描條碼的回饋文字
-  document.getElementById("sync-indicator").innerText = `⚡ 已讀取條碼 [ ${scannedCode} ]，查詢中...`;
+  const syncIndicator = document.getElementById("sync-indicator");
+  if (syncIndicator) {
+    syncIndicator.innerText = `⚡ 已讀取條碼 [ ${scannedCode} ]，查詢中...`;
+  }
 
-  stopScanner().then(() => {
-    closeModal("modal-scanner");
+  closeScannerModal();
 
-    // 自快取記憶體 allData 瞬間搜尋匹配
+  setTimeout(() => {
+    if (syncIndicator) syncIndicator.innerText = "";
+
     const foundExt = allData.find(d => String(d.code).trim() === scannedCode);
-
-    setTimeout(() => {
-      document.getElementById("sync-indicator").innerText = "";
-      if (foundExt) {
-        selectedExt = { rowIndex: foundExt.rowIndex, data: foundExt };
-        renderExtInfo(selectedExt.data);
-        showModal("modal-ext-info");
-      } else {
-        showConfirmModal(
-          "查無條碼紀錄",
-          `系統中查無編號「${scannedCode}」的滅火器！\n是否要立即新增此滅火器？`,
-          function() {
-            switchView('v-user', 't-user');
-            document.getElementById("add-id").value = scannedCode;
-            document.getElementById("add-floor").focus();
-          }
-        );
-      }
-    }, 150);
-  });
+    if (foundExt) {
+      selectedExt = { rowIndex: foundExt.rowIndex, data: foundExt };
+      renderExtInfo(selectedExt.data);
+      showModal("modal-ext-info");
+    } else {
+      showConfirmModal(
+        "查無條碼紀錄",
+        `系統中查無編號「${scannedCode}」的滅火器！\n是否要立即新增此滅火器？`,
+        function() {
+          switchView('v-user', 't-user');
+          const addIdInput = document.getElementById("add-id");
+          if (addIdInput) addIdInput.value = scannedCode;
+          const addFloorInput = document.getElementById("add-floor");
+          if (addFloorInput) addFloorInput.focus();
+        }
+      );
+    }
+  }, 150);
 }
 
-/* 4. 「所有設備」清單：按樓層分組顯示 (例如：1F - 共 2 支) */
+// --- 5. 樓層數字轉換輔助函式 ---
+function parseFloorNum(floorStr) {
+  if (!floorStr) return 999;
+  const match = String(floorStr).match(/-?\d+/);
+  if (match) {
+    let num = parseInt(match[0], 10);
+    if (String(floorStr).toUpperCase().includes("B")) {
+      num = -Math.abs(num);
+    }
+    return num;
+  }
+  return 999;
+}
+
+// --- 6. 所有設備清單（按樓層低➔高自動分組，顯示：🏢 1F - 共 2 支）---
 function renderList() {
-  const sortVal = document.getElementById("filter-sort").value;
-  const statusVal = document.getElementById("filter-status").value;
+  const sortSelect = document.getElementById("filter-sort");
+  const statusSelect = document.getElementById("filter-status");
+  const sortVal = sortSelect ? sortSelect.value : "all";
+  const statusVal = statusSelect ? statusSelect.value : "all";
   let filtered = [...allData];
 
-  // 依狀態篩選（本月已檢查 / 本月未檢查）
   if (statusVal === "done") {
     filtered = filtered.filter(d => getYearMonthString(d.lastCheckDate) === currentMonthStr);
   } else if (statusVal === "undone") {
     filtered = filtered.filter(d => getYearMonthString(d.lastCheckDate) !== currentMonthStr);
   }
 
-  // 依到期日進行內部排序
   if (sortVal === "new_old") {
     filtered.sort((a, b) => new Date(b.expireDate || '1970') - new Date(a.expireDate || '1970'));
   } else if (sortVal === "old_new") {
@@ -505,32 +537,32 @@ function renderList() {
   }
 
   const container = document.getElementById("all-data-list");
+  if (!container) return;
+
   if (filtered.length === 0) {
     container.innerHTML = "<div class='card' style='text-align:center;'>無符合條件的資料</div>";
     return;
   }
 
-  // 將資料依樓層區塊 (1F, 2F...) 歸類分組
+  // 依樓層歸類分組
   const floorGroups = {};
   filtered.forEach(item => {
-    const floorKey = item.floor || "其他樓層";
+    const floorKey = (item.floor && String(item.floor).trim()) ? String(item.floor).trim() : "其他樓層";
     if (!floorGroups[floorKey]) floorGroups[floorKey] = [];
     floorGroups[floorKey].push(item);
   });
 
-  // 依樓層數字小➔大自動排序 (例：1F ➔ 2F ➔ 10F)
+  // 依樓層由低到高 (例：1F ➔ 2F ➔ 3F) 排序
   const sortedFloorKeys = Object.keys(floorGroups).sort((a, b) => {
     return parseFloorNum(a) - parseFloorNum(b);
   });
 
-  // 組合各樓層 HTML 卡片
   let htmlOutput = "";
-
   sortedFloorKeys.forEach(floorKey => {
     const itemsInFloor = floorGroups[floorKey];
     const totalCount = itemsInFloor.length;
 
-    // 樓層統計標題列 (例如：1F - 共 2 支)
+    // 樓層統計標題列
     htmlOutput += `
       <div class="floor-group-header">
         <span>🏢 ${floorKey}</span>
@@ -538,7 +570,6 @@ function renderList() {
       </div>
     `;
 
-    // 該樓層底下的設備明細
     itemsInFloor.forEach(d => {
       const isDone = getYearMonthString(d.lastCheckDate) === currentMonthStr;
       htmlOutput += `
@@ -560,7 +591,7 @@ function renderList() {
 
   container.innerHTML = htmlOutput;
 }
-
+    
     function toggleAddCalendarType() {
       isAddRoc = !isAddRoc;
       const label = document.getElementById("add-date-label");
