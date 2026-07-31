@@ -129,22 +129,34 @@
   font-size: 13px;
 }
 
-/* 修正 HTML5-QRCode 鏡頭掃描框遮罩與線條 */
+/* 掃描相機外框與紅線定位 */
+.scanner-container-box {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #000;
+  min-height: 260px;
+}
+
+/* 中央對焦紅線 */
+.scanner-laser-line {
+  position: absolute;
+  top: 50%;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: #ff0033;
+  box-shadow: 0 0 8px #ff0033, 0 0 3px #ffffff;
+  transform: translateY(-50%);
+  z-index: 15;
+  pointer-events: none; /* 避免干擾相機點擊與觸控 */
+}
+
+/* 讓掃描遮罩不要全黑，提升視覺對焦體驗 */
 #reader__scan_region {
   background: rgba(0, 0, 0, 0.35) !important;
 }
-    
-    /* 掃描對焦紅線（固定中央，不上下移動） */
-    .scanner-container-box {
-      position: relative; width: 100%; overflow: hidden;
-      border-radius: 12px; background: #000; min-height: 240px;
-    }
-    .scanner-laser-line {
-      position: absolute; top: 50%; left: 8%; right: 8%; height: 2px;
-      background: #ff0033; box-shadow: 0 0 8px #ff0033, 0 0 3px #ffffff;
-      transform: translateY(-50%);
-      z-index: 10; pointer-events: none;
-    }
   </style>
 </head>
 <body>
@@ -234,35 +246,38 @@
     </div>
   </div>
 
-  <!-- 相機條碼掃描彈窗 -->
-  <div id="scanner-container" class="card hidden">
-  <div id="reader" style="width: 100%; max-width: 360px; margin: 0 auto;"></div>
-  
-  <!-- 變焦滑軌（預設隱藏，待相機啟動後檢測支援才顯示） -->
-  <div id="zoom-control" class="hidden" style="margin-top: 12px; text-align: center;">
-    <label for="zoom-slider" style="font-size: 14px; font-weight: bold; color: var(--primary-dark);">
-      鏡頭縮放
-    </label>
-    <div style="display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 4px;">
-      <span>1x</span>
-      <input type="range" id="zoom-slider" min="1" max="3" step="0.1" value="1" style="width: 60%;">
-      <span id="zoom-max-label">3x</span>
+  <!-- 相機條碼掃描彈窗 (修改為置中 modal-overlay 結構) -->
+<div id="scanner-container" class="modal-overlay">
+  <div class="modal-card" style="max-width: 380px; width: 92%; padding: 18px;">
+    <h4 style="color:var(--primary-dark); margin-top:0; margin-bottom: 12px;">📷 掃描滅火器條碼</h4>
+    
+    <!-- 掃描外框容器，用來定位紅線 -->
+    <div class="scanner-container-box" style="position: relative; width: 100%; min-height: 260px; overflow: hidden; border-radius: 12px; background: #000;">
+      <!-- 對焦輔助紅線 -->
+      <div class="scanner-laser-line"></div>
+      <!-- html5-qrcode 相機畫面注入點 -->
+      <div id="reader" style="width: 100%;"></div>
     </div>
+    
+    <!-- 變焦滑軌 -->
+    <div id="zoom-control" class="hidden" style="margin-top: 14px; text-align: center;">
+      <label for="zoom-slider" style="font-size: 14px; font-weight: bold; color: var(--primary-dark);">
+        🔍 鏡頭縮放
+      </label>
+      <div style="display: flex; align-items: center; gap: 10px; justify-content: center; margin-top: 6px;">
+        <span style="font-size: 13px; color: #666;">1x</span>
+        <input type="range" id="zoom-slider" min="1" max="3" step="0.1" value="1" style="width: 65%; margin: 0;">
+        <span id="zoom-max-label" style="font-size: 13px; color: #666;">3x</span>
+      </div>
+    </div>
+
+    <!-- 讀取狀態提示 -->
+    <div id="scan-status" style="text-align: center; color: var(--primary-dark); font-weight: bold; margin-top: 12px; min-height: 20px; font-size: 14px;"></div>
+
+    <!-- 關閉按鈕 -->
+    <button class="btn-secondary" onclick="stopScanner()" style="margin-top: 14px;">關閉相機</button>
   </div>
-
-  <!-- 讀取狀態提示 -->
-  <div id="scan-status" style="text-align: center; color: var(--primary-dark); font-weight: bold; margin-top: 10px;"></div>
-
-  <button class="btn-secondary" onclick="stopScanner()" style="margin-top: 12px;">關閉相機</button>
 </div>
-
-  <div id="modal-alert" class="modal-overlay">
-    <div class="modal-card">
-      <h4 id="alert-title" style="color:var(--primary-dark); margin-top:0;">提示</h4>
-      <p id="alert-message" style="margin:16px 0;"></p>
-      <button onclick="closeAlertModal()">確定</button>
-    </div>
-  </div>
 
   <!-- 新增：詢問是否新增滅火器確認彈窗 -->
   <div id="modal-confirm" class="modal-overlay">
@@ -380,97 +395,64 @@ let currentVideoTrack = null;
 
 // 啟動相機掃描
 function startScanner() {
-  document.getElementById("scanner-container").classList.remove("hidden");
-  document.getElementById("scan-status").innerText = "";
+  // 1. 以 modal 彈窗顯示
+  const scannerModal = document.getElementById("scanner-container");
+  scannerModal.style.display = "flex";
+  scannerModal.classList.remove("hidden");
+  document.getElementById("scan-status").innerText = "相機啟動中...";
   
   if (!html5QrCode) {
-    html5QrCode = new Html5Qrcode("reader");
+    // 開啟實驗性條碼硬體加速偵測 (大幅提高 1D/QR 條碼辨識率)
+    html5QrCode = new Html5Qrcode("reader", { 
+      experimentalFeatures: { useBarCodeDetectorIfSupported: true } 
+    });
   }
 
+  // 2. 優化掃描設定：提高 FPS、動態取景框適配一維條碼/QR Code
   const config = {
-    fps: 10,
-    qrbox: { width: 220, height: 220 }, // 設定正方形小取景框，避免畫面過長
-    aspectRatio: 1.0
+    fps: 15,                          // 提升至 15 偵，讓掃描更敏銳
+    qrbox: { width: 250, height: 180 }, // 稍寬的長方形框，對一維條碼或 QR Code 都有良好相容性
+    aspectRatio: 1.333,               // 對齊常見手機相機 4:3 比例
+    videoConstraints: {
+      facingMode: "environment",      // 強制使用後置鏡頭
+      focusMode: "continuous",        // 請求連續自動對焦
+      width: { min: 640, ideal: 1280 }, // 請求較高解析度輸入以利條碼解析
+      height: { min: 480, ideal: 720 }
+    }
   };
 
   html5QrCode.start(
-    { facingMode: "environment" }, // 使用後置鏡頭
+    { facingMode: "environment" },
     config,
     onScanSuccess
   ).then(() => {
-    // 檢查硬體是否支援縮放 (Zoom)
+    document.getElementById("scan-status").innerText = "請將條碼對準紅線";
+    // 檢查鏡頭是否支援縮放 (Zoom)
     initZoomControls();
   }).catch(err => {
+    document.getElementById("scan-status").innerText = "";
+    stopScanner();
     showAlert("相機啟動失敗", "請確定已授權相機權限，且網頁運行於 HTTPS 環境下。");
     console.error("相機錯誤:", err);
   });
 }
 
-// 檢測鏡頭變焦並綁定滑軌
-function initZoomControls() {
-  try {
-    const videoElement = document.querySelector("#reader video");
-    if (!videoElement || !videoElement.srcObject) return;
-
-    currentVideoTrack = videoElement.srcObject.getVideoTracks()[0];
-    const capabilities = currentVideoTrack.getCapabilities();
-
-    if (capabilities && 'zoom' in capabilities) {
-      const zoomControl = document.getElementById("zoom-control");
-      const zoomSlider = document.getElementById("zoom-slider");
-      const zoomMaxLabel = document.getElementById("zoom-max-label");
-
-      zoomSlider.min = capabilities.zoom.min;
-      zoomSlider.max = capabilities.zoom.max;
-      zoomSlider.step = capabilities.zoom.step || 0.1;
-      zoomSlider.value = capabilities.zoom.min;
-      zoomMaxLabel.innerText = `${capabilities.zoom.max}x`;
-
-      zoomControl.classList.remove("hidden");
-
-      zoomSlider.oninput = function(event) {
-        currentVideoTrack.applyConstraints({
-          advanced: [{ zoom: Number(event.target.value) }]
-        }).catch(err => console.log("變焦調整失敗:", err));
-      };
-    }
-  } catch (e) {
-    console.log("不支援硬體縮放:", e);
-  }
-}
-
-// 掃描成功處理
-function onScanSuccess(decodedText) {
-  // 1. 立即暫停或停止，避免重複掃描
-  html5QrCode.pause();
-  
-  // 2. 顯示讀取中提示
-  document.getElementById("scan-status").innerHTML = `<span class="spinner"></span> 已讀取條碼 (${decodedText})，資料核對中...`;
-
-  // 3. 尋找對應滅火器並開啟檢查視窗
-  setTimeout(() => {
-    const foundExt = allData.find(d => d.code === decodedText.trim());
-    if (foundExt) {
-      stopScanner();
-      selectedExt = { rowIndex: foundExt.rowIndex, data: foundExt };
-      renderExtInfo(selectedExt.data);
-      showModal("modal-ext-info");
-    } else {
-      document.getElementById("scan-status").innerText = "找不到對應的滅火器編號： " + decodedText;
-      html5QrCode.resume(); // 找不到時恢復掃描
-    }
-  }, 500);
-}
-
-// 關閉相機
+// 關閉相機彈窗
 function stopScanner() {
+  const scannerModal = document.getElementById("scanner-container");
   if (html5QrCode && html5QrCode.isScanning) {
     html5QrCode.stop().then(() => {
-      document.getElementById("scanner-container").classList.add("hidden");
+      scannerModal.style.display = "none";
+      scannerModal.classList.add("hidden");
       document.getElementById("zoom-control").classList.add("hidden");
-    }).catch(err => console.error(err));
+    }).catch(err => {
+      console.error(err);
+      scannerModal.style.display = "none";
+      scannerModal.classList.add("hidden");
+    });
   } else {
-    document.getElementById("scanner-container").classList.add("hidden");
+    scannerModal.style.display = "none";
+    scannerModal.classList.add("hidden");
   }
 }
 
