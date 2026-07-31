@@ -149,23 +149,30 @@
           disableFlip: true
         };
         if (supported) scannerConfig.formatsToSupport = supported;
-        await state.scanner.start(
-          { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
-          scannerConfig,
-          async text => {
-            if (state.scanBusy) return;
-            state.scanBusy = true;
-            $('zoom-control').classList.remove('visible');
-            await stopScanner();
-            const item = state.data.find(entry => normalizeCode(entry.code) === normalizeCode(text));
-            if (item) {
-              showDetail(item.rowIndex);
-            } else {
-              showBarcodeNotFoundModal(text.trim());
-            }
-            state.scanBusy = false;
-          }
-        );
+        const onDetected = async text => {
+          if (state.scanBusy) return;
+          state.scanBusy = true;
+          $('zoom-control').classList.remove('visible');
+          await stopScanner();
+          const item = state.data.find(entry => normalizeCode(entry.code) === normalizeCode(text));
+          if (item) showDetail(item.rowIndex);
+          else showBarcodeNotFoundModal(text.trim());
+          state.scanBusy = false;
+        };
+        try {
+          await state.scanner.start(
+            { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+            scannerConfig,
+            onDetected
+          );
+        } catch (optimizedError) {
+          console.warn('快速相機設定不相容，改用相容模式', optimizedError);
+          await state.scanner.start(
+            { facingMode: 'environment' },
+            { fps: 15, qrbox: { width: 280, height: 120 }, disableFlip: true },
+            onDetected
+          );
+        }
         await configureCameraZoom();
         $('scan-status').textContent = '請將橫向條碼完整置於掃描框內，可用下方滑桿縮放';
       } catch (error) {
