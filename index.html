@@ -139,7 +139,7 @@
   </script>
   <div id="barcode-not-found-modal" class="modal"><div class="dialog"><h2>找不到滅火器</h2><p id="barcode-not-found-message"></p><p class="muted">是否要以此條碼編號新增滅火器？</p><div class="row"><button id="add-scanned-ext">新增滅火器</button><button id="cancel-scanned-ext" type="button" class="secondary">取消</button></div></div></div>
   <div id="swap-modal" class="modal"><div class="dialog"><h2>更換滅火器位置</h2><p id="swap-current" class="muted"></p><label for="swap-target">選擇要交換的滅火器編號</label><select id="swap-target"></select><p class="muted">只會交換兩台滅火器的樓層與位置；編號、日期、壓力與巡檢紀錄不會變更。</p><div class="row"><button id="confirm-swap">確認交換</button><button id="cancel-swap" type="button" class="secondary">取消</button></div></div></div>
-  <div id="swap-confirm-modal" class="modal"><div class="dialog"><h2>確認更換位置</h2><p id="swap-confirm-message"></p><p class="muted">兩台滅火器的樓層與位置將互換。</p><div class="row"><button id="commit-swap">確認更換</button><button id="cancel-confirm-swap" type="button" class="secondary">取消</button></div></div></div>
+  <div id="swap-confirm-modal" class="modal"><div class="dialog"><h2>確認更</h2><p id="swap-confirm-message"></p><p class="muted">兩台滅火器的樓層與位置將互換。</p><div class="row"><button id="commit-swap">確認更換</button><button id="cancel-confirm-swap" type="button" class="secondary">取消</button></div></div></div>
   <script>
     let pendingScannedCode = '';
     function openAddForScannedCode(code) {
@@ -317,8 +317,8 @@
     swapButton.type = 'button'; swapButton.id = 'swap-button'; swapButton.textContent = '換位置';
     swapButton.style.width = '100%'; swapButton.style.marginTop = '14px'; swapButton.style.marginBottom = '14px';
     const submitBtn = $('edit-form').querySelector('button[type="submit"]');
-    const targetNode = (submitBtn.parentElement === $('edit-form')) ? submitBtn : submitBtn.parentElement;
-    $('edit-form').insertBefore(swapButton, targetNode);
+    const targetNode = (submitBtn.parentElement.tagName === 'FORM') ? submitBtn : submitBtn.parentElement;
+    targetNode.parentNode.insertBefore(swapButton, targetNode);
     swapButton.addEventListener('click', openSwapModal);
     $('confirm-swap').addEventListener('click', swapLocations);
     $('cancel-swap').addEventListener('click', () => closeModal('swap-modal'));
