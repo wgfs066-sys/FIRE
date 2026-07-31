@@ -133,6 +133,12 @@
       catch (error) { console.debug('縮放設定失敗', error); }
     }
 
+    async function requestCameraAccess() {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('此瀏覽環境不支援相機存取。請使用部署後的 HTTPS 網址開啟系統。');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      stream.getTracks().forEach(track => track.stop());
+    }
+
     async function startBarcodeScanner() {
       if (!state.data.length) return showAlert('滅火器資料尚未載入完成，請稍候再試。');
       if (!window.Html5Qrcode) return showAlert('掃描元件載入失敗，請確認網路連線。', '錯誤');
@@ -140,6 +146,7 @@
       openModal('scanner-modal');
       $('scan-status').textContent = '正在啟動相機…';
       try {
+        await requestCameraAccess();
         state.scanner ||= new Html5Qrcode('reader');
         const formats = window.Html5QrcodeSupportedFormats;
         const supported = Number.isInteger(formats?.CODE_128) ? [formats.CODE_128] : undefined;
@@ -178,7 +185,8 @@
       } catch (error) {
         console.error(error);
         await stopScanner();
-        showAlert('無法啟動相機。請允許相機權限，並以 HTTPS 網址開啟頁面。', '相機錯誤');
+        const denied = error?.name === 'NotAllowedError' || error?.name === 'SecurityError';
+        showAlert(denied ? '相機權限未被允許。請在網站網址列的鎖頭圖示中將「相機」設為允許，然後重新整理頁面。若目前網址是 file:///，請先部署並改用 HTTPS 網址。' : (error.message || '無法啟動相機。請使用 HTTPS 網址開啟頁面。'), '相機錯誤');
       }
     }
 
