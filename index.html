@@ -154,8 +154,15 @@
 }
 
 /* 讓掃描遮罩不要全黑，提升視覺對焦體驗 */
-#reader__scan_region {
-  background: rgba(0, 0, 0, 0.35) !important;
+#reader {
+  width: 100%;
+  min-height: 260px;
+  background: #000000;
+}
+#reader video {
+  width: 100% !important;
+  height: auto !important;
+  object-fit: cover;
 }
   </style>
 </head>
@@ -393,17 +400,41 @@
 let html5QrCode = null;
 let currentVideoTrack = null;
 
-// 啟動相機掃描
+// ==========================================
+// 1. 補上缺失的掃描成功處理邏輯 (onScanSuccess)
+// ==========================================
+function onScanSuccess(decodedText, decodedResult) {
+  // 停止掃描器音效與鏡頭
+  stopScanner();
+  
+  // 比對系統內的編號（去除前後空格）
+  const scannedCode = decodedText.trim();
+  const foundExt = allData.find(d => d.code === scannedCode);
+  
+  if (foundExt) {
+    // 找到對應的滅火器，開啟檢查視窗
+    selectedExt = { rowIndex: foundExt.rowIndex, data: foundExt };
+    renderExtInfo(selectedExt.data);
+    showModal("modal-ext-info");
+  } else {
+    // 找不到該編號時提示
+    showAlert("查無設備", `系統中找不到條碼為「${scannedCode}」的滅火器，請確認是否為已列管設備。`);
+  }
+}
+
+// ==========================================
+// 2. 修正相機啟動邏輯 (修復讀取框消失問題)
+// ==========================================
 async function startScanner() {
   const scannerModal = document.getElementById("scanner-container");
   const statusEl = document.getElementById("scan-status");
 
-  // 1. 先顯示彈窗
+  // 1. 先打開彈窗並給定緩衝高度，避免視覺塌陷
   scannerModal.style.display = "flex";
   scannerModal.classList.remove("hidden");
-  statusEl.innerText = "正在請求相機權限...";
+  statusEl.innerText = "正在啟動相機...";
 
-  // 2. 檢查網頁環境 (必須是 HTTPS 或 localhost)
+  // 2. 檢查安全性環境 (需為 HTTPS 或 Localhost)
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     statusEl.innerText = "";
     stopScanner();
@@ -412,28 +443,37 @@ async function startScanner() {
   }
 
   try {
-    // 3. 【核心修正】先用原生 API 強制彈出瀏覽器的「允許相機存取」通知
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      video: { facingMode: "environment" } 
-    });
-    
-    // 取得授權後，立刻釋放原生鏡頭，讓給 Html5Qrcode 接管
-    stream.getTracks().forEach(track => track.stop());
-
-    statusEl.innerText = "相機啟動中...";
-
-    // 4. 初始化套件 (精簡參數，避免過度要求造成跨平台相容性問題)
+    // 3. 【修復關鍵】：不要自己 getTracks().stop()！
+    // 直接調用 Html5Qrcode 的內部檢測與授權，瀏覽器一樣會正常跳出權限詢問
     if (!html5QrCode) {
-      html5QrCode = new Html5Qrcode("reader");
+      // 開啟原生硬體條碼偵測，加強掃描效能
+      html5QrCode = new Html5Qrcode("reader", {
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+      });
     }
 
+    // 4. 如果相機已經在執行，不重複調用
+    if (html5QrCode.isScanning) {
+      return;
+    }
+
+    // 5. 使用稍為彈性的 QR box 取景框，並允許自適應解析度
     const config = {
       fps: 15,
-      qrbox: { width: 250, height: 180 },
+      qrbox: function(viewfinderWidth, viewfinderHeight) {
+        // 動態計算讀取框大小，保留畫面空間以符合行動裝置橫豎螢幕
+        const minEdgePercentage = 0.75;
+        const minEdgeSize = Math.min(viewfinderWidth, viewfinderHeight);
+        const qrboxSize = Math.floor(minEdgeSize * minEdgePercentage);
+        return {
+          width: Math.min(qrboxSize, 280),
+          height: Math.min(qrboxSize, 180)
+        };
+      },
       aspectRatio: 1.333
     };
 
-    // 5. 正式啟動畫面
+    // 6. 啟動後鏡頭，並傳入定義好的 onScanSuccess
     await html5QrCode.start(
       { facingMode: "environment" },
       config,
@@ -442,7 +482,7 @@ async function startScanner() {
 
     statusEl.innerText = "請將條碼對準紅線";
     
-    // 初始化縮放控制 (若支援)
+    // 若日後有擴充縮放套件，可在此安全呼叫
     if (typeof initZoomControls === 'function') {
       initZoomControls();
     }
@@ -452,31 +492,39 @@ async function startScanner() {
     statusEl.innerText = "";
     stopScanner();
 
-    // 針對不同錯誤給予明確提示
-    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-      showAlert("相機權限被拒絕", "您先前可能點選了拒絕授權。請點擊網址列左側的「鎖頭 🔒」或「設定」圖示，手動重新開啟相機權限後再試一次。");
+    // 給予適當的錯誤指引
+    const errName = err.name || "";
+    const errMsg = err.toString();
+    if (errName.includes("NotAllowed") || errName.includes("Permission") || errMsg.includes("Permission")) {
+      showAlert("相機權限被拒絕", "請點擊網址列左側的「鎖頭 🔒」或「設定」圖示，手動重新開啟相機權限後再試一次。");
     } else {
-      showAlert("相機啟動失敗", "無法取得相機畫面，請確定相機沒有被其他 App 佔用。");
+      showAlert("相機啟動失敗", "無法取得相機畫面，請確認相機無被其他 App 佔用，並重新整理網頁。");
     }
   }
 }
 
-// 關閉相機彈窗
+// ==========================================
+// 3. 安全停止相機並復原 UI 狀態
+// ==========================================
 function stopScanner() {
   const scannerModal = document.getElementById("scanner-container");
-  if (html5QrCode && html5QrCode.isScanning) {
-    html5QrCode.stop().then(() => {
-      scannerModal.style.display = "none";
-      scannerModal.classList.add("hidden");
-      document.getElementById("zoom-control").classList.add("hidden");
-    }).catch(err => {
-      console.error(err);
-      scannerModal.style.display = "none";
-      scannerModal.classList.add("hidden");
-    });
-  } else {
+  const zoomControl = document.getElementById("zoom-control");
+
+  function hideModal() {
     scannerModal.style.display = "none";
     scannerModal.classList.add("hidden");
+    if (zoomControl) zoomControl.classList.add("hidden");
+  }
+
+  if (html5QrCode && html5QrCode.isScanning) {
+    html5QrCode.stop()
+      .then(() => hideModal())
+      .catch(err => {
+        console.error("關閉相機失敗:", err);
+        hideModal();
+      });
+  } else {
+    hideModal();
   }
 }
 
