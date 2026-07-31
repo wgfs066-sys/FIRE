@@ -313,12 +313,21 @@
     $('zoom-slider').addEventListener('input', applyCameraZoom);
     $('stop-scan').addEventListener('click', () => $('zoom-control').classList.remove('visible'));
 
-    const swapButton = document.createElement('button');
+  const swapButton = document.createElement('button');
     swapButton.type = 'button'; swapButton.id = 'swap-button'; swapButton.textContent = '換位置';
     swapButton.style.width = '100%'; swapButton.style.marginTop = '14px'; swapButton.style.marginBottom = '14px';
-    const submitBtn = $('edit-form').querySelector('button[type="submit"]');
-    const targetNode = (submitBtn.parentElement.tagName === 'FORM') ? submitBtn : submitBtn.parentElement;
-    targetNode.parentNode.insertBefore(swapButton, targetNode);
+    
+    // 【絕不報錯的精準定位寫法】抓取表單內的第一個按鈕(儲存)，往上找到直接父層後，插在它的正上方
+    let targetNode = $('edit-form').querySelector('button');
+    while (targetNode && targetNode.parentElement !== $('edit-form')) {
+      targetNode = targetNode.parentElement;
+    }
+    if (targetNode) {
+      $('edit-form').insertBefore(swapButton, targetNode);
+    } else {
+      $('edit-form').appendChild(swapButton);
+    }
+
     swapButton.addEventListener('click', openSwapModal);
     $('confirm-swap').addEventListener('click', swapLocations);
     $('cancel-swap').addEventListener('click', () => closeModal('swap-modal'));
